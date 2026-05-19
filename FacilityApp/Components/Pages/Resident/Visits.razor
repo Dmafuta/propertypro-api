@@ -7,6 +7,7 @@
 @inject ITenantService TenantSvc
 @inject TenantContext TenantCtx
 @inject AuthenticationStateProvider AuthState
+@inject IQrCodeService QrSvc
 
 <PageTitle>My Visits — @TenantCtx.TenantName</PageTitle>
 
@@ -90,6 +91,11 @@
                                 <td class="text-end pe-3">
                                     @if (v.Status == VisitStatus.Scheduled)
                                     {
+                                        <button class="btn btn-sm btn-outline-primary me-1"
+                                                @onclick="() => ShowQr(v.Id)"
+                                                title="Show QR code">
+                                            <i class="bi bi-qr-code"></i>
+                                        </button>
                                         <button class="btn btn-sm btn-outline-danger"
                                                 @onclick="() => CancelAsync(v.Id)"
                                                 disabled="@_busy"
@@ -132,6 +138,27 @@
     </div>
 </div>
 
+@if (_qrDataUrl is not null)
+{
+    <!-- QR Code modal backdrop -->
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);" @onclick="CloseQr">
+        <div class="modal-dialog modal-sm modal-dialog-centered" @onclick:stopPropagation>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-semibold"><i class="bi bi-qr-code me-2 text-primary"></i>Visitor QR Code</h6>
+                    <button type="button" class="btn-close" @onclick="CloseQr"></button>
+                </div>
+                <div class="modal-body text-center pt-2">
+                    <p class="text-muted small mb-3">Share with your visitor. Security scans this at the gate.</p>
+                    <img src="@_qrDataUrl" alt="QR Code"
+                         style="width:200px;height:200px;image-rendering:pixelated;" class="border rounded p-1 mb-2" />
+                    <div><small class="text-muted" style="font-size:0.65rem;">@_qrVisitId</small></div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public string TenantSlug { get; set; } = "";
 
@@ -151,6 +178,9 @@
     private string? _search;
     private int _page = 1;
     private const int PageSize = 15;
+
+    private string? _qrDataUrl;
+    private Guid? _qrVisitId;
 
     private List<Visit> Filtered
     {
@@ -208,6 +238,18 @@
     }
 
     private void SetTab(string tab) { _activeTab = tab; _page = 1; }
+
+    private void ShowQr(Guid visitId)
+    {
+        _qrVisitId  = visitId;
+        _qrDataUrl  = QrSvc.GenerateVisitQr(visitId);
+    }
+
+    private void CloseQr()
+    {
+        _qrDataUrl = null;
+        _qrVisitId = null;
+    }
 
     private async Task CancelAsync(Guid visitId)
     {

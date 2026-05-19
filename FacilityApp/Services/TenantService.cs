@@ -1,29 +1,62 @@
-using FacilityApp.Data;
 using FacilityApp.Data.Models;
-using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace FacilityApp.Services;
 
 public class TenantService : ITenantService
 {
-    private readonly AppDbContext _db;
+    private readonly NpgsqlDataSource _dataSource;
 
-    public TenantService(AppDbContext db)
+    public TenantService(NpgsqlDataSource dataSource)
     {
-        _db = db;
+        _dataSource = dataSource;
     }
 
     public async Task<Tenant?> ResolveBySlugAsync(string slug)
     {
-        return await _db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Slug == slug.ToLower() && t.IsActive);
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT "Id","Name","Slug","CustomDomain","IsActive","LogoUrl","PrimaryColour",
+                   "ContactEmail","ContactPhone","Address","Website","CreatedAt"
+            FROM tenants
+            WHERE "Slug" = @slug AND "IsActive" = true
+            LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("slug", slug.ToLower());
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? MapTenant(reader) : null;
     }
 
     public async Task<Tenant?> ResolveByDomainAsync(string host)
     {
-        return await _db.Tenants
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.CustomDomain == host.ToLower() && t.IsActive);
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT "Id","Name","Slug","CustomDomain","IsActive","LogoUrl","PrimaryColour",
+                   "ContactEmail","ContactPhone","Address","Website","CreatedAt"
+            FROM tenants
+            WHERE "CustomDomain" = @host AND "IsActive" = true
+            LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("host", host.ToLower());
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? MapTenant(reader) : null;
     }
+
+    private static Tenant MapTenant(NpgsqlDataReader r) => new()
+    {
+        Id            = r.GetGuid(0),
+        Name          = r.GetString(1),
+        Slug          = r.GetString(2),
+        CustomDomain  = r.IsDBNull(3) ? null : r.GetString(3),
+        IsActive      = r.GetBoolean(4),
+        LogoUrl       = r.IsDBNull(5) ? null : r.GetString(5),
+        PrimaryColour = r.IsDBNull(6) ? null : r.GetString(6),
+        ContactEmail  = r.IsDBNull(7) ? null : r.GetString(7),
+        ContactPhone  = r.IsDBNull(8) ? null : r.GetString(8),
+        Address       = r.IsDBNull(9) ? null : r.GetString(9),
+        Website       = r.IsDBNull(10) ? null : r.GetString(10),
+        CreatedAt     = r.GetDateTime(11),
+    };
 }

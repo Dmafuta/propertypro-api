@@ -1,0 +1,274 @@
+@page "/{TenantSlug}/admin/documents"
+@page "/admin/documents"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize(Policy = "CanManageUsers")]
+@inject IDocumentService DocumentSvc
+@inject ITenantService TenantSvc
+@inject TenantContext TenantCtx
+@inject AuthenticationStateProvider AuthState
+
+@using FacilityApp.Data.Models
+
+<PageTitle>Documents — @TenantCtx.TenantName</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold"><i class="bi bi-folder2-open me-2 text-primary"></i>Document Library</h4>
+        <small class="text-muted">Upload files visible to all residents of this facility</small>
+    </div>
+    @if (!_showForm)
+    {
+        <button class="btn btn-primary" @onclick="() => _showForm = true">
+            <i class="bi bi-upload me-1"></i>Upload Document
+        </button>
+    }
+</div>
+
+@if (_showForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom py-3">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-upload me-2 text-primary"></i>Upload New Document</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label fw-medium">Title <span class="text-danger">*</span></label>
+                    <input class="form-control" placeholder="e.g. Community Rules 2025" @bind="_title" maxlength="150" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Category</label>
+                    <select class="form-select" @bind="_category">
+                        @foreach (var c in Enum.GetValues<DocumentCategory>())
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-medium">Description <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea class="form-control" rows="2" placeholder="Brief description of the document…" @bind="_description"></textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-medium">File <span class="text-danger">*</span></label>
+                    <InputFile class="form-control" OnChange="OnFileSelected" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" />
+                    <div class="form-text">PDF, Word, Excel, images, or plain text — max 10 MB</div>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_formError</div>
+            }
+        </div>
+        <div class="card-footer bg-white border-top d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary" @onclick="CancelForm" disabled="@_busy">Cancel</button>
+            <button class="btn btn-primary" @onclick="UploadAsync" disabled="@(_busy || _file is null)">
+                @if (_busy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Upload
+            </button>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="text-center py-5 text-muted">
+        <div class="spinner-border text-primary mb-2"></div>
+        <p>Loading…</p>
+    </div>
+}
+else if (_docs.Count == 0 && !_showForm)
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bi bi-folder2-open fs-1 d-block mb-3 opacity-25"></i>
+            <h5>No documents yet</h5>
+            <p class="mb-3 small">Upload files to share with residents.</p>
+            <button class="btn btn-primary" @onclick="() => _showForm = true">
+                <i class="bi bi-upload me-1"></i>Upload Document
+            </button>
+        </div>
+    </div>
+}
+else if (_docs.Count > 0)
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-semibold">@_docs.Count document@(_docs.Count == 1 ? "" : "s")</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Title</th>
+                            <th>Category</th>
+                            <th>File</th>
+                            <th>Size</th>
+                            <th>Uploaded</th>
+                            <th class="text-center">Visible</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in _docs)
+                        {
+                            <tr class="@(d.IsActive ? "" : "opacity-50")">
+                                <td class="ps-3">
+                                    <div class="fw-medium">@d.Title</div>
+                                    @if (!string.IsNullOrEmpty(d.Description))
+                                    {
+                                        <small class="text-muted">@d.Description</small>
+                                    }
+                                </td>
+                                <td><span class="badge bg-light text-dark border">@d.Category</span></td>
+                                <td>
+                                    <a href="/documents/@TenantCtx.TenantSlug/@d.StoredFileName"
+                                       download="@d.OriginalFileName"
+                                       class="small text-decoration-none text-primary">
+                                        <i class="bi bi-download me-1"></i>@d.OriginalFileName
+                                    </a>
+                                </td>
+                                <td class="small text-muted">@FormatSize(d.FileSize)</td>
+                                <td class="small text-muted">
+                                    @d.UploadedAt.ToLocalTime().ToString("MMM d, yyyy")<br />
+                                    <span class="text-muted">@d.UploadedBy?.FullName</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                        <input class="form-check-input" type="checkbox"
+                                               checked="@d.IsActive"
+                                               @onchange="() => ToggleAsync(d.Id)" />
+                                    </div>
+                                </td>
+                                <td class="text-end pe-3">
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteAsync(d.Id)"
+                                            title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_toast is not null)
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100;">
+        <div class="toast show align-items-center text-bg-@_toastType border-0 shadow">
+            <div class="d-flex">
+                <div class="toast-body">@_toast</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => _toast = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TenantSlug { get; set; } = "";
+
+    private List<Document> _docs = [];
+    private bool _loading = true;
+    private bool _busy;
+    private bool _showForm;
+    private string _userId = "";
+
+    private string _title = "";
+    private string? _description;
+    private DocumentCategory _category = DocumentCategory.General;
+    private IBrowserFile? _file;
+    private string _formError = "";
+
+    private string? _toast;
+    private string _toastType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantCtx.IsResolved)
+        {
+            var tenant = await TenantSvc.ResolveBySlugAsync(TenantSlug);
+            if (tenant is not null)
+            {
+                TenantCtx.TenantId   = tenant.Id;
+                TenantCtx.TenantSlug = tenant.Slug;
+                TenantCtx.TenantName = tenant.Name;
+                TenantCtx.IsResolved = true;
+            }
+        }
+
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        _userId  = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        _docs    = await DocumentSvc.GetAllAsync();
+        _loading = false;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e) => _file = e.File;
+
+    private async Task UploadAsync()
+    {
+        _formError = "";
+        if (string.IsNullOrWhiteSpace(_title)) { _formError = "Title is required."; return; }
+        if (_file is null)                     { _formError = "Please select a file."; return; }
+
+        _busy = true;
+        try
+        {
+            await DocumentSvc.UploadAsync(_title, _description, _category, _file, _userId);
+            _docs = await DocumentSvc.GetAllAsync();
+            CancelForm();
+            ShowToast("Document uploaded successfully.", "success");
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleAsync(Guid id)
+    {
+        await DocumentSvc.ToggleActiveAsync(id);
+        _docs = await DocumentSvc.GetAllAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await DocumentSvc.DeleteAsync(id);
+        _docs = await DocumentSvc.GetAllAsync();
+        ShowToast("Document deleted.", "success");
+    }
+
+    private void CancelForm()
+    {
+        _showForm    = false;
+        _title       = "";
+        _description = null;
+        _category    = DocumentCategory.General;
+        _file        = null;
+        _formError   = "";
+    }
+
+    private void ShowToast(string message, string type)
+    {
+        _toast     = message;
+        _toastType = type;
+        _ = Task.Delay(4000).ContinueWith(_ =>
+        {
+            _toast = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1_048_576 => $"{bytes / 1_048_576.0:0.#} MB",
+        >= 1_024     => $"{bytes / 1_024.0:0.#} KB",
+        _            => $"{bytes} B"
+    };
+}

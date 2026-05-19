@@ -20,6 +20,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BlacklistEntry> BlacklistEntries { get; set; }
     public DbSet<UnitRequest> UnitRequests { get; set; }
     public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
+    public DbSet<Announcement> Announcements { get; set; }
+    public DbSet<Document> Documents { get; set; }
+    public DbSet<IncidentReport> IncidentReports { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -47,6 +50,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<BlacklistEntry>().ToTable("blacklist_entries");
         builder.Entity<UnitRequest>().ToTable("unit_requests");
         builder.Entity<MaintenanceRequest>().ToTable("maintenance_requests");
+        builder.Entity<Announcement>().ToTable("announcements");
+        builder.Entity<Document>().ToTable("documents");
+        builder.Entity<IncidentReport>().ToTable("incident_reports");
 
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
 
@@ -80,6 +86,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<BlacklistEntry>().HasQueryFilter(b => b.TenantId == CurrentTenantId);
         builder.Entity<UnitRequest>().HasQueryFilter(r => r.TenantId == CurrentTenantId);
         builder.Entity<MaintenanceRequest>().HasQueryFilter(m => m.TenantId == CurrentTenantId);
+        builder.Entity<Announcement>().HasQueryFilter(a => a.TenantId == CurrentTenantId);
+        builder.Entity<Document>().HasQueryFilter(d => d.TenantId == CurrentTenantId);
+        builder.Entity<IncidentReport>().HasQueryFilter(i => i.TenantId == CurrentTenantId);
 
         builder.Entity<UnitRequest>()
             .HasOne(r => r.Resident)
@@ -115,6 +124,30 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .HasOne(m => m.AssignedTo)
             .WithMany()
             .HasForeignKey(m => m.AssignedToId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<Announcement>()
+            .HasOne(a => a.CreatedBy)
+            .WithMany()
+            .HasForeignKey(a => a.CreatedById)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Document>()
+            .HasOne(d => d.UploadedBy)
+            .WithMany()
+            .HasForeignKey(d => d.UploadedById)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<IncidentReport>()
+            .HasOne(i => i.ReportedBy)
+            .WithMany()
+            .HasForeignKey(i => i.ReportedById)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<IncidentReport>()
+            .HasOne(i => i.ResolvedBy)
+            .WithMany()
+            .HasForeignKey(i => i.ResolvedById)
             .OnDelete(DeleteBehavior.SetNull);
     }
 }

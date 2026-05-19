@@ -8,6 +8,7 @@
 @inject TenantContext TenantCtx
 @inject NavigationManager Nav
 @inject IWebHostEnvironment Env
+@inject IQrCodeService QrSvc
 
 <PageTitle>Check In Visitor — @TenantCtx.TenantName</PageTitle>
 
@@ -30,6 +31,10 @@
     <button class="checkin-tab @(_mode == Mode.Scheduled ? "active" : "")"
             @onclick="() => SwitchToScheduledAsync()">
         <i class="bi bi-calendar-check me-2"></i>From Schedule
+    </button>
+    <button class="checkin-tab @(_mode == Mode.QrScan ? "active" : "")"
+            @onclick="SwitchToQrScan">
+        <i class="bi bi-qr-code-scan me-2"></i>QR Scan
     </button>
 </div>
 
@@ -232,6 +237,82 @@
         </div>
     </div>
 }
+else if (_mode == Mode.QrScan)
+{
+    <!-- QR Scan tab -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-qr-code-scan me-2 text-primary"></i>Scan or Enter Visit ID</h6>
+                </div>
+                <div class="card-body">
+                    @if (_error is not null)
+                    {
+                        <div class="alert alert-danger py-2 small mb-3">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@_error
+                        </div>
+                    }
+                    @if (_success is not null)
+                    {
+                        <div class="alert alert-success py-2 small mb-3">
+                            <i class="bi bi-check-circle me-1"></i>@_success
+                        </div>
+                    }
+
+                    <label class="form-label fw-medium small">Visit ID (scan QR or paste)</label>
+                    <div class="input-group mb-3">
+                        <input class="form-control font-monospace"
+                               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                               @bind="_qrInput"
+                               @bind:event="oninput"
+                               @onkeydown="OnQrInputKey" />
+                        <button class="btn btn-primary" @onclick="LookupQrAsync" disabled="@_busy">
+                            @if (_busy) { <span class="spinner-border spinner-border-sm"></span> }
+                            else { <i class="bi bi-search"></i> }
+                        </button>
+                    </div>
+
+                    @if (_qrVisit is not null)
+                    {
+                        <div class="card border border-success bg-success bg-opacity-10 mb-3">
+                            <div class="card-body py-3">
+                                <div class="d-flex align-items-center gap-3 mb-2">
+                                    <div class="visitor-avatar">@_qrVisit.Visitor.FullName[0].ToString().ToUpper()</div>
+                                    <div>
+                                        <div class="fw-semibold">@_qrVisit.Visitor.FullName</div>
+                                        <small class="text-muted">@_qrVisit.Visitor.Email · @_qrVisit.Visitor.Phone</small>
+                                    </div>
+                                </div>
+                                <div class="small mb-1"><span class="fw-medium">Purpose:</span> @_qrVisit.Purpose</div>
+                                <div class="small mb-1"><span class="fw-medium">Host:</span> @(_qrVisit.Host?.FullName ?? "—")</div>
+                                <div class="small mb-3"><span class="fw-medium">Scheduled:</span> @_qrVisit.ScheduledAt.ToLocalTime().ToString("MMM d, h:mm tt")</div>
+                                <button class="btn btn-success w-100" @onclick="CheckInQrAsync" disabled="@_busy">
+                                    @if (_busy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                    else { <i class="bi bi-person-check-fill me-2"></i> }
+                                    Check In @_qrVisit.Visitor.FullName
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 bg-light h-100">
+                <div class="card-body py-4">
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-info-circle text-primary me-2"></i>QR Check-In</h6>
+                    <ul class="list-unstyled small text-muted mb-0">
+                        <li class="mb-2"><i class="bi bi-check2 text-success me-2"></i>Residents receive a QR code when they pre-register a visitor.</li>
+                        <li class="mb-2"><i class="bi bi-check2 text-success me-2"></i>Use a USB barcode/QR scanner — it types the visit ID automatically.</li>
+                        <li class="mb-2"><i class="bi bi-check2 text-success me-2"></i>Or paste the visit ID from the QR code reader app.</li>
+                        <li><i class="bi bi-check2 text-success me-2"></i>Review the visitor details, then click <strong>Check In</strong>.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 else
 {
     <!-- Scheduled visits list -->
@@ -333,8 +414,12 @@ else
 @code {
     [Parameter] public string TenantSlug { get; set; } = "";
 
-    private enum Mode { WalkIn, Scheduled }
+    private enum Mode { WalkIn, Scheduled, QrScan }
     private Mode _mode = Mode.WalkIn;
+
+    // QR scan state
+    private string _qrInput = "";
+    private Visit? _qrVisit;
 
     private WalkInForm  _walkIn  = new();
     private List<ApplicationUser>? _hosts;
@@ -563,6 +648,67 @@ else
         _passIssued       = false;
         _issuedPassNumber = null;
         ClearPhoto();
+    }
+
+    private void SwitchToQrScan()
+    {
+        _mode    = Mode.QrScan;
+        _success = null;
+        _error   = null;
+        _qrInput = "";
+        _qrVisit = null;
+    }
+
+    private async Task OnQrInputKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await LookupQrAsync();
+    }
+
+    private async Task LookupQrAsync()
+    {
+        _error   = null;
+        _success = null;
+        _qrVisit = null;
+
+        var raw = _qrInput.Trim();
+        if (!Guid.TryParse(raw, out var visitId))
+        {
+            _error = "Invalid visit ID. Please scan again or check the value.";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var visits = await VisitorSvc.GetScheduledVisitsAsync(null);
+            _qrVisit = visits.FirstOrDefault(v => v.Id == visitId);
+            if (_qrVisit is null)
+                _error = "Visit not found or is not in Scheduled status.";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task CheckInQrAsync()
+    {
+        if (_qrVisit is null) return;
+        _busy    = true;
+        _blocked = false;
+        _error   = null;
+        try
+        {
+            await VisitorSvc.CheckInAsync(_qrVisit.Id);
+            _success      = $"{_qrVisit.Visitor.FullName} has been checked in successfully.";
+            _lastVisitId  = _qrVisit.Id;
+            _passIssued   = false;
+            _issuedPassNumber = null;
+            _qrVisit      = null;
+            _qrInput      = "";
+        }
+        catch (VisitorBlockedException ex) { _blocked = true; _error = ex.Message; }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
     }
 
     private sealed class WalkInForm

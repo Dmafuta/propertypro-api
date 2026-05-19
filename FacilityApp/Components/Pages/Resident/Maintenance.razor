@@ -1,7 +1,7 @@
 @page "/{TenantSlug}/resident/maintenance"
 @page "/resident/maintenance"
 @layout ResidentLayout
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Policy = "CanViewOwnHistory")]
 @inject IMaintenanceService MaintenanceSvc
 @inject IUnitService UnitSvc

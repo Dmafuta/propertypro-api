@@ -7,7 +7,7 @@
 <div class="resident-root">
     <nav class="resident-navbar navbar navbar-expand-lg">
         <div class="container-fluid px-4">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="/@CurrentSlug/resident">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="@($"{TenantCtx.RouteBase}/resident")">
                 <div class="resident-brand-icon"><i class="bi bi-buildings"></i></div>
                 <span class="fw-bold">@(TenantCtx.IsResolved ? TenantCtx.TenantName : "FacilityApp")</span>
             </a>
@@ -19,27 +19,32 @@
             <div class="collapse navbar-collapse" id="residentNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <NavLink class="nav-link" href="@($"/{CurrentSlug}/resident")" Match="NavLinkMatch.All">
+                        <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/resident")" Match="NavLinkMatch.All">
                             <i class="bi bi-speedometer2 me-1"></i> Dashboard
                         </NavLink>
                     </li>
                     <li class="nav-item">
-                        <NavLink class="nav-link" href="@($"/{CurrentSlug}/resident/visits")">
+                        <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/resident/visits")">
                             <i class="bi bi-calendar-check me-1"></i> My Visits
                         </NavLink>
                     </li>
                     <li class="nav-item">
-                        <NavLink class="nav-link" href="@($"/{CurrentSlug}/resident/preregister")">
+                        <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/resident/preregister")">
                             <i class="bi bi-person-plus me-1"></i> Pre-register
                         </NavLink>
                     </li>
                     <li class="nav-item">
-                        <NavLink class="nav-link" href="@($"/{CurrentSlug}/resident/maintenance")">
+                        <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/resident/maintenance")">
                             <i class="bi bi-tools me-1"></i> Maintenance
                         </NavLink>
                     </li>
                     <li class="nav-item">
-                        <NavLink class="nav-link" href="@($"/{CurrentSlug}/resident/profile")">
+                        <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/resident/documents")">
+                            <i class="bi bi-folder2-open me-1"></i> Documents
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/resident/profile")">
                             <i class="bi bi-person-circle me-1"></i> My Profile
                         </NavLink>
                     </li>
@@ -51,7 +56,7 @@
                         <span class="resident-user-name small">
                             <i class="bi bi-person-circle me-1"></i>@_userName
                         </span>
-                        <form method="post" action="/@CurrentSlug/api/resident/logout">
+                        <form method="post" action="@($"{TenantCtx.RouteBase}/api/resident/logout")">
                             <AntiForgeryToken />
                             <button type="submit" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-box-arrow-right me-1"></i>Sign Out
@@ -60,7 +65,7 @@
                     }
                     else
                     {
-                        <a href="/@CurrentSlug/resident/login" class="btn btn-sm btn-primary">Sign In</a>
+                        <a href="@($"{TenantCtx.RouteBase}/resident/login")" class="btn btn-sm btn-primary">Sign In</a>
                     }
                 </div>
             </div>

@@ -5,6 +5,7 @@ using FacilityApp.Hubs;
 using FacilityApp.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace FacilityApp
 {
@@ -42,6 +43,9 @@ namespace FacilityApp
                 });
 
             builder.Services.AddSignalR();
+
+            // Singleton Npgsql data source — used by TenantService for concurrent-safe tenant resolution
+            builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connStr!));
 
             // Database
             builder.Services.AddDbContext<AppDbContext>(options =>
@@ -146,6 +150,12 @@ namespace FacilityApp
 
                 options.AddPolicy("CanViewOwnHistory",
                     p => p.RequireAuthenticatedUser());
+
+                options.AddPolicy("CanLogIncidents",
+                    p => p.RequireRole(RoleSecurity, RoleReceptionist, RoleManager, RoleAdmin));
+
+                options.AddPolicy("CanManageIncidents",
+                    p => p.RequireRole(RoleManager, RoleAdmin));
             });
 
             // Health checks
@@ -206,6 +216,10 @@ namespace FacilityApp
             builder.Services.AddScoped<ISettingsService, SettingsService>();
             builder.Services.AddScoped<IUnitRequestService, UnitRequestService>();
             builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
+            builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+            builder.Services.AddScoped<IDocumentService, DocumentService>();
+            builder.Services.AddScoped<IIncidentService, IncidentService>();
+            builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
 
             var app = builder.Build();
 
@@ -261,13 +275,13 @@ namespace FacilityApp
             {
                 await signInManager.SignOutAsync();
                 return Results.Redirect("/login");
-            }).DisableAntiforgery();
+            });
 
             app.MapPost("/api/resident/logout", async (SignInManager<ApplicationUser> signInManager) =>
             {
                 await signInManager.SignOutAsync();
                 return Results.Redirect("/resident/login");
-            }).DisableAntiforgery();
+            });
 
             // Slug-free CSV export for custom-domain deployments
             app.MapGet("/api/reports/export", async (

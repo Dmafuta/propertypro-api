@@ -6,10 +6,13 @@
 @inject IVisitorService VisitorSvc
 @inject IUnitService UnitSvc
 @inject IUnitRequestService RequestSvc
+@inject IAnnouncementService AnnouncementSvc
 @inject ITenantService TenantSvc
 @inject TenantContext TenantCtx
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
+
+@using FacilityApp.Data.Models
 
 <PageTitle>My Dashboard — @TenantCtx.TenantName</PageTitle>
 
@@ -71,6 +74,24 @@ else
             </div>
         </div>
     </div>
+
+    <!-- Announcements -->
+    @if (_announcements.Count > 0)
+    {
+        <div class="mb-4">
+            @foreach (var a in _announcements)
+            {
+                <div class="alert @AnnouncementAlertClass(a.Category) d-flex gap-3 align-items-start mb-2 shadow-sm" role="alert">
+                    <i class="bi @AnnouncementIcon(a.Category) fs-5 mt-1"></i>
+                    <div>
+                        <div class="fw-semibold">@a.Title</div>
+                        <div class="small">@a.Body</div>
+                        <div class="small opacity-75 mt-1">@a.PublishedAt.ToLocalTime().ToString("MMM d, yyyy")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
 
     <!-- Upcoming visits -->
     <div class="card border-0 shadow-sm mb-4">
@@ -215,6 +236,7 @@ else
 
     private List<Visit> _visits = [];
     private List<Visit> _upcoming = [];
+    private List<Announcement> _announcements = [];
     private string _userName = "";
     private string _userId = "";
     private bool _loading = true;
@@ -263,6 +285,7 @@ else
             if (_myUnit is null)
                 _pendingRequest = await RequestSvc.GetForResidentAsync(_userId);
         }
+        _announcements = await AnnouncementSvc.GetActiveAsync();
         _loading = false;
     }
 
@@ -277,6 +300,22 @@ else
             .ToList();
         _busy = false;
     }
+
+    private static string AnnouncementAlertClass(AnnouncementCategory c) => c switch
+    {
+        AnnouncementCategory.Urgent      => "alert-danger",
+        AnnouncementCategory.Maintenance => "alert-warning",
+        AnnouncementCategory.Event       => "alert-info",
+        _                                => "alert-secondary"
+    };
+
+    private static string AnnouncementIcon(AnnouncementCategory c) => c switch
+    {
+        AnnouncementCategory.Urgent      => "bi-exclamation-triangle-fill",
+        AnnouncementCategory.Maintenance => "bi-tools",
+        AnnouncementCategory.Event       => "bi-calendar-event",
+        _                                => "bi-megaphone-fill"
+    };
 
     private static string StatusBadge(VisitStatus s) => s switch
     {

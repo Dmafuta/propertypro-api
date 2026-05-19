@@ -1,0 +1,422 @@
+@page "/{TenantSlug}/incidents"
+@page "/incidents"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize(Policy = "CanLogIncidents")]
+@inject IIncidentService IncidentSvc
+@inject ITenantService TenantSvc
+@inject TenantContext TenantCtx
+@inject AuthenticationStateProvider AuthState
+
+@using FacilityApp.Data.Models
+
+<PageTitle>Incidents — @TenantCtx.TenantName</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle me-2 text-primary"></i>Incident Reports</h4>
+        <small class="text-muted">Log and track security, medical, or facility incidents</small>
+    </div>
+    @if (!_showForm)
+    {
+        <button class="btn btn-primary" @onclick="() => _showForm = true">
+            <i class="bi bi-plus-lg me-1"></i>Log Incident
+        </button>
+    }
+</div>
+
+@if (_showForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom py-3">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-pencil-square me-2 text-primary"></i>New Incident Report</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-medium">Title <span class="text-danger">*</span></label>
+                    <input class="form-control" placeholder="Brief summary of the incident" @bind="_title" maxlength="150" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Category</label>
+                    <select class="form-select" @bind="_category">
+                        @foreach (var c in Enum.GetValues<IncidentCategory>())
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Severity</label>
+                    <select class="form-select" @bind="_severity">
+                        @foreach (var s in Enum.GetValues<IncidentSeverity>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Location <span class="text-danger">*</span></label>
+                    <input class="form-control" placeholder="e.g. Gate 1, Parking B, Unit 12" @bind="_location" maxlength="150" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-medium">Description <span class="text-danger">*</span></label>
+                    <textarea class="form-control" rows="3" placeholder="Describe what happened in detail…" @bind="_description"></textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-medium">Involved Parties <span class="text-muted fw-normal">(optional)</span></label>
+                    <input class="form-control" placeholder="Names, unit numbers, vehicle plates, etc." @bind="_involvedParties" maxlength="300" />
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_formError</div>
+            }
+        </div>
+        <div class="card-footer bg-white border-top d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary" @onclick="CancelForm" disabled="@_busy">Cancel</button>
+            <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@_busy">
+                @if (_busy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Submit Report
+            </button>
+        </div>
+    </div>
+}
+
+<!-- Status update modal -->
+@if (_resolveTarget is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);" @onclick="CloseResolve">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0">
+                    <h6 class="modal-title fw-semibold"><i class="bi bi-arrow-repeat me-2 text-primary"></i>Update Status</h6>
+                    <button type="button" class="btn-close" @onclick="CloseResolve"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">New Status</label>
+                        <select class="form-select" @bind="_newStatus">
+                            @foreach (var s in Enum.GetValues<IncidentStatus>())
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label fw-medium">Resolution Notes <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea class="form-control" rows="3" placeholder="Actions taken, outcome…" @bind="_resolutionNotes"></textarea>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_resolveError))
+                    {
+                        <div class="alert alert-danger mt-3 mb-0">@_resolveError</div>
+                    }
+                </div>
+                <div class="modal-footer border-0">
+                    <button class="btn btn-outline-secondary" @onclick="CloseResolve" disabled="@_busy">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveStatusAsync" disabled="@_busy">
+                        @if (_busy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Filter tabs -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom py-0">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <ul class="nav nav-tabs border-0 mb-0">
+                @foreach (var (key, label) in Tabs)
+                {
+                    <li class="nav-item">
+                        <button class="nav-link @(_activeTab == key ? "active" : "")" @onclick="() => SetTab(key)">@label</button>
+                    </li>
+                }
+            </ul>
+            <div style="width:220px;" class="my-1">
+                <input class="form-control form-control-sm" placeholder="Search…"
+                       @bind="_search" @bind:event="oninput" />
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        @if (_loading)
+        {
+            <div class="text-center py-5 text-muted">
+                <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+            </div>
+        }
+        else if (Filtered.Count == 0)
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-shield-check fs-1 d-block mb-2 opacity-25"></i>
+                No incidents in this category.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Incident</th>
+                            <th>Category</th>
+                            <th>Severity</th>
+                            <th>Location</th>
+                            <th>Reported By</th>
+                            <th>Date</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var i in Filtered)
+                        {
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="fw-medium">@i.Title</div>
+                                    <small class="text-muted">@(i.Description.Length > 70 ? i.Description[..70] + "…" : i.Description)</small>
+                                    @if (!string.IsNullOrEmpty(i.InvolvedParties))
+                                    {
+                                        <div><small class="text-muted"><i class="bi bi-people me-1"></i>@i.InvolvedParties</small></div>
+                                    }
+                                </td>
+                                <td><span class="badge bg-light text-dark border">@i.Category</span></td>
+                                <td>@((MarkupString)SeverityBadge(i.Severity))</td>
+                                <td class="small text-muted">@i.Location</td>
+                                <td class="small">@i.ReportedBy?.FullName</td>
+                                <td class="small text-muted">
+                                    @i.ReportedAt.ToLocalTime().ToString("MMM d, yyyy")<br />
+                                    @i.ReportedAt.ToLocalTime().ToString("h:mm tt")
+                                </td>
+                                <td class="text-center">@((MarkupString)StatusBadge(i.Status))</td>
+                                <td class="text-end pe-3">
+                                    <AuthorizeView Policy="CanManageIncidents">
+                                        <Authorized>
+                                            <button class="btn btn-sm btn-outline-primary me-1"
+                                                    @onclick="() => OpenResolve(i)"
+                                                    title="Update status">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => DeleteAsync(i.Id)"
+                                                    title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </Authorized>
+                                    </AuthorizeView>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-3 py-2 border-top">
+                <small class="text-muted">@Filtered.Count result@(Filtered.Count == 1 ? "" : "s")</small>
+            </div>
+        }
+    </div>
+</div>
+
+@if (_toast is not null)
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100;">
+        <div class="toast show align-items-center text-bg-@_toastType border-0 shadow">
+            <div class="d-flex">
+                <div class="toast-body">@_toast</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => _toast = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TenantSlug { get; set; } = "";
+
+    private static readonly (string Key, string Label)[] Tabs =
+    [
+        ("open",    "Open"),
+        ("review",  "Under Review"),
+        ("closed",  "Resolved / Closed"),
+        ("all",     "All"),
+    ];
+
+    private List<IncidentReport> _all = [];
+    private string _activeTab = "open";
+    private string? _search;
+    private bool _loading = true;
+    private bool _busy;
+    private bool _showForm;
+    private string _userId = "";
+    private string _userName = "";
+
+    // Log form
+    private string _title = "";
+    private string _description = "";
+    private string _location = "";
+    private string? _involvedParties;
+    private IncidentCategory _category = IncidentCategory.Other;
+    private IncidentSeverity _severity = IncidentSeverity.Medium;
+    private string _formError = "";
+
+    // Resolve modal
+    private IncidentReport? _resolveTarget;
+    private IncidentStatus _newStatus;
+    private string? _resolutionNotes;
+    private string _resolveError = "";
+
+    private string? _toast;
+    private string _toastType = "success";
+
+    private List<IncidentReport> Filtered
+    {
+        get
+        {
+            IEnumerable<IncidentReport> q = _activeTab switch
+            {
+                "open"   => _all.Where(i => i.Status == IncidentStatus.Open),
+                "review" => _all.Where(i => i.Status == IncidentStatus.UnderReview),
+                "closed" => _all.Where(i => i.Status is IncidentStatus.Resolved or IncidentStatus.Closed),
+                _        => _all
+            };
+
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var s = _search.Trim().ToLower();
+                q = q.Where(i =>
+                    i.Title.ToLower().Contains(s) ||
+                    i.Description.ToLower().Contains(s) ||
+                    i.Location.ToLower().Contains(s) ||
+                    (i.InvolvedParties != null && i.InvolvedParties.ToLower().Contains(s)) ||
+                    i.ReportedBy.FullName.ToLower().Contains(s));
+            }
+
+            return q.OrderByDescending(i => i.ReportedAt).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantCtx.IsResolved)
+        {
+            var tenant = await TenantSvc.ResolveBySlugAsync(TenantSlug);
+            if (tenant is not null)
+            {
+                TenantCtx.TenantId   = tenant.Id;
+                TenantCtx.TenantSlug = tenant.Slug;
+                TenantCtx.TenantName = tenant.Name;
+                TenantCtx.IsResolved = true;
+            }
+        }
+
+        var auth  = await AuthState.GetAuthenticationStateAsync();
+        _userId   = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        _userName = auth.User.Identity?.Name ?? "";
+
+        _all     = await IncidentSvc.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _formError = "";
+        if (string.IsNullOrWhiteSpace(_title))       { _formError = "Title is required."; return; }
+        if (string.IsNullOrWhiteSpace(_description)) { _formError = "Description is required."; return; }
+        if (string.IsNullOrWhiteSpace(_location))    { _formError = "Location is required."; return; }
+
+        _busy = true;
+        try
+        {
+            await IncidentSvc.CreateAsync(_title, _description, _location, _involvedParties, _category, _severity, _userId);
+            _all = await IncidentSvc.GetAllAsync();
+            CancelForm();
+            ShowToast("Incident report submitted.", "success");
+        }
+        catch (Exception ex) { _formError = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private void OpenResolve(IncidentReport incident)
+    {
+        _resolveTarget    = incident;
+        _newStatus        = incident.Status;
+        _resolutionNotes  = incident.ResolutionNotes;
+        _resolveError     = "";
+    }
+
+    private void CloseResolve()
+    {
+        _resolveTarget   = null;
+        _resolutionNotes = null;
+        _resolveError    = "";
+    }
+
+    private async Task SaveStatusAsync()
+    {
+        if (_resolveTarget is null) return;
+        _busy = true;
+        try
+        {
+            await IncidentSvc.UpdateStatusAsync(_resolveTarget.Id, _newStatus, _resolutionNotes, _userId);
+            _all = await IncidentSvc.GetAllAsync();
+            CloseResolve();
+            ShowToast("Status updated.", "success");
+        }
+        catch (Exception ex) { _resolveError = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _busy = true;
+        try
+        {
+            await IncidentSvc.DeleteAsync(id);
+            _all = await IncidentSvc.GetAllAsync();
+            ShowToast("Report deleted.", "warning");
+        }
+        catch (Exception ex) { ShowToast(ex.Message, "danger"); }
+        finally { _busy = false; }
+    }
+
+    private void CancelForm()
+    {
+        _showForm        = false;
+        _title           = "";
+        _description     = "";
+        _location        = "";
+        _involvedParties = null;
+        _category        = IncidentCategory.Other;
+        _severity        = IncidentSeverity.Medium;
+        _formError       = "";
+    }
+
+    private void SetTab(string tab) => _activeTab = tab;
+
+    private void ShowToast(string message, string type)
+    {
+        _toast     = message;
+        _toastType = type;
+        _ = Task.Delay(4000).ContinueWith(_ => { _toast = null; InvokeAsync(StateHasChanged); });
+    }
+
+    private static string SeverityBadge(IncidentSeverity s) => s switch
+    {
+        IncidentSeverity.Low      => "<span class=\"badge bg-secondary\">Low</span>",
+        IncidentSeverity.Medium   => "<span class=\"badge bg-info text-dark\">Medium</span>",
+        IncidentSeverity.High     => "<span class=\"badge bg-warning text-dark\">High</span>",
+        IncidentSeverity.Critical => "<span class=\"badge bg-danger\">Critical</span>",
+        _                         => "<span class=\"badge bg-light text-dark\">—</span>"
+    };
+
+    private static string StatusBadge(IncidentStatus s) => s switch
+    {
+        IncidentStatus.Open        => "<span class=\"badge bg-danger\">Open</span>",
+        IncidentStatus.UnderReview => "<span class=\"badge bg-warning text-dark\">Under Review</span>",
+        IncidentStatus.Resolved    => "<span class=\"badge bg-success\">Resolved</span>",
+        IncidentStatus.Closed      => "<span class=\"badge bg-secondary\">Closed</span>",
+        _                          => "<span class=\"badge bg-light text-dark\">—</span>"
+    };
+}

@@ -1,0 +1,20 @@
+## Build output
+bin/
+obj/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+## Sensitive config — never commit dev credentials
+appsettings.Development.json
+
+## User-uploaded files — mount as persistent volume in production
+wwwroot/uploads/
+wwwroot/documents/
+
+## Logs
+*.log
+logs/

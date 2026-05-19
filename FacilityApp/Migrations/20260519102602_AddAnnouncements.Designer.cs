@@ -3,6 +3,7 @@ using System;
 using FacilityApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FacilityApp.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260519102602_AddAnnouncements")]
+    partial class AddAnnouncements
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -283,55 +286,6 @@ namespace FacilityApp.Migrations
                     b.ToTable("blacklist_entries", (string)null);
                 });
 
-            modelBuilder.Entity("FacilityApp.Data.Models.Document", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UploadedById")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UploadedById");
-
-                    b.ToTable("documents", (string)null);
-                });
-
             modelBuilder.Entity("FacilityApp.Data.Models.Facility", b =>
                 {
                     b.Property<Guid>("Id")
@@ -362,66 +316,6 @@ namespace FacilityApp.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("facilities", (string)null);
-                });
-
-            modelBuilder.Entity("FacilityApp.Data.Models.IncidentReport", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("InvolvedParties")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("ReportedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ReportedById")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResolutionNotes")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ResolvedById")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Severity")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ReportedById");
-
-                    b.HasIndex("ResolvedById");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("incident_reports", (string)null);
                 });
 
             modelBuilder.Entity("FacilityApp.Data.Models.MaintenanceRequest", b =>
@@ -911,25 +805,6 @@ namespace FacilityApp.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("FacilityApp.Data.Models.Document", b =>
-                {
-                    b.HasOne("FacilityApp.Data.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("FacilityApp.Data.Models.ApplicationUser", "UploadedBy")
-                        .WithMany()
-                        .HasForeignKey("UploadedById")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("UploadedBy");
-                });
-
             modelBuilder.Entity("FacilityApp.Data.Models.Facility", b =>
                 {
                     b.HasOne("FacilityApp.Data.Models.Tenant", "Tenant")
@@ -937,32 +812,6 @@ namespace FacilityApp.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("FacilityApp.Data.Models.IncidentReport", b =>
-                {
-                    b.HasOne("FacilityApp.Data.Models.ApplicationUser", "ReportedBy")
-                        .WithMany()
-                        .HasForeignKey("ReportedById")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("FacilityApp.Data.Models.ApplicationUser", "ResolvedBy")
-                        .WithMany()
-                        .HasForeignKey("ResolvedById")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("FacilityApp.Data.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ReportedBy");
-
-                    b.Navigation("ResolvedBy");
 
                     b.Navigation("Tenant");
                 });

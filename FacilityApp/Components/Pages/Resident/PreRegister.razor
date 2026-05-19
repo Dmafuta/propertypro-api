@@ -7,6 +7,7 @@
 @inject ITenantService TenantSvc
 @inject TenantContext TenantCtx
 @inject AuthenticationStateProvider AuthState
+@inject IQrCodeService QrSvc
 
 <PageTitle>Pre-register Visitor — @TenantCtx.TenantName</PageTitle>
 
@@ -41,6 +42,20 @@
                         <button type="button" class="btn btn-sm btn-success" @onclick="RegisterAnother">Register Another</button>
                     </div>
                 </div>
+                @if (_visitQr is not null)
+                {
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body text-center py-3">
+                            <h6 class="fw-semibold mb-1"><i class="bi bi-qr-code me-2 text-primary"></i>Visitor QR Code</h6>
+                            <p class="text-muted small mb-3">Share this QR code with your visitor. Security can scan it at the gate for fast check-in.</p>
+                            <img src="@_visitQr" alt="Visitor QR Code"
+                                 style="width:180px;height:180px;image-rendering:pixelated;" class="border rounded p-1" />
+                            <div class="mt-2">
+                                <small class="text-muted">Visit ID: <code style="font-size:0.7rem;">@_visitId</code></small>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
 
             @if (_success is null)
@@ -145,6 +160,8 @@
     private string _userId = "";
     private string? _error;
     private string? _success;
+    private string? _visitQr;
+    private Guid? _visitId;
     private bool _busy;
 
     protected override async Task OnInitializedAsync()
@@ -182,11 +199,13 @@
                 return;
             }
 
-            await VisitorSvc.PreRegisterAsync(
+            var visit = await VisitorSvc.PreRegisterAsync(
                 _form.FullName, _form.Email, _form.Phone, _form.Company,
                 _form.Purpose, _userId, scheduledAt, _form.Notes);
 
-            _success = $"{_form.FullName} is scheduled to visit on {scheduledAt.ToLocalTime():MMM d, yyyy} at {scheduledAt.ToLocalTime():h:mm tt}.";
+            _visitId  = visit.Id;
+            _visitQr  = QrSvc.GenerateVisitQr(visit.Id);
+            _success  = $"{_form.FullName} is scheduled to visit on {scheduledAt.ToLocalTime():MMM d, yyyy} at {scheduledAt.ToLocalTime():h:mm tt}.";
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
@@ -198,6 +217,8 @@
         _visitTime = new TimeOnly(10, 0);
         _success   = null;
         _error     = null;
+        _visitQr   = null;
+        _visitId   = null;
     }
 
     private sealed class PreRegForm

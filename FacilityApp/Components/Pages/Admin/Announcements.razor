@@ -1,0 +1,273 @@
+@page "/{TenantSlug}/admin/announcements"
+@page "/admin/announcements"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "CanManageUsers")]
+@inject IAnnouncementService AnnouncementSvc
+@inject ITenantService TenantSvc
+@inject TenantContext TenantCtx
+@inject AuthenticationStateProvider AuthState
+
+@using FacilityApp.Data.Models
+
+<PageTitle>Announcements — @TenantCtx.TenantName</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold"><i class="bi bi-megaphone me-2 text-primary"></i>Announcements</h4>
+        <small class="text-muted">Post notices and updates to all residents</small>
+    </div>
+    @if (!_showForm)
+    {
+        <button class="btn btn-primary" @onclick="() => _showForm = true">
+            <i class="bi bi-plus-lg me-1"></i>New Announcement
+        </button>
+    }
+</div>
+
+@if (_showForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom py-3">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-pencil-square me-2 text-primary"></i>New Announcement</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-medium">Title <span class="text-danger">*</span></label>
+                    <input class="form-control" placeholder="Announcement title" @bind="_title" maxlength="150" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Category</label>
+                    <select class="form-select" @bind="_category">
+                        @foreach (var c in Enum.GetValues<AnnouncementCategory>())
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Expires On <span class="text-muted small">(optional)</span></label>
+                    <input type="date" class="form-control" @bind="_expiresAt" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-medium">Message <span class="text-danger">*</span></label>
+                    <textarea class="form-control" rows="4" placeholder="Write your announcement…" @bind="_body"></textarea>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_formError</div>
+            }
+        </div>
+        <div class="card-footer bg-white border-top d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary" @onclick="CancelForm" disabled="@_busy">Cancel</button>
+            <button class="btn btn-primary" @onclick="CreateAsync" disabled="@_busy">
+                @if (_busy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Publish
+            </button>
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="text-center py-5 text-muted">
+        <div class="spinner-border text-primary mb-2"></div>
+        <p>Loading…</p>
+    </div>
+}
+else if (_announcements.Count == 0)
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bi bi-megaphone fs-1 d-block mb-3 opacity-25"></i>
+            <h5>No announcements yet</h5>
+            <p class="mb-0 small">Post your first announcement for residents.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Title</th>
+                            <th>Category</th>
+                            <th>Published</th>
+                            <th>Expires</th>
+                            <th>Posted By</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in _announcements)
+                        {
+                            <tr class="@(a.IsActive ? "" : "opacity-50")">
+                                <td class="ps-3">
+                                    <div class="fw-medium">@a.Title</div>
+                                    <small class="text-muted">@(a.Body.Length > 80 ? a.Body[..80] + "…" : a.Body)</small>
+                                </td>
+                                <td>@((MarkupString)CategoryBadge(a.Category))</td>
+                                <td class="small text-muted">@a.PublishedAt.ToLocalTime().ToString("MMM d, yyyy")</td>
+                                <td class="small text-muted">@(a.ExpiresAt.HasValue ? a.ExpiresAt.Value.ToLocalTime().ToString("MMM d, yyyy") : "—")</td>
+                                <td class="small">@a.CreatedBy.FullName</td>
+                                <td class="text-center">
+                                    @if (a.IsActive && (a.ExpiresAt == null || a.ExpiresAt > DateTime.UtcNow))
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else if (!a.IsActive)
+                                    {
+                                        <span class="badge bg-secondary">Hidden</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">Expired</span>
+                                    }
+                                </td>
+                                <td class="text-end pe-3">
+                                    <button class="btn btn-sm btn-outline-secondary me-1"
+                                            @onclick="() => ToggleAsync(a.Id)"
+                                            disabled="@_busy"
+                                            title="@(a.IsActive ? "Hide" : "Show")">
+                                        <i class="bi @(a.IsActive ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteAsync(a.Id)"
+                                            disabled="@_busy"
+                                            title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_toast is not null)
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100;">
+        <div class="toast show align-items-center text-bg-@_toastType border-0 shadow">
+            <div class="d-flex">
+                <div class="toast-body">@_toast</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => _toast = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TenantSlug { get; set; } = "";
+
+    private List<Announcement> _announcements = [];
+    private bool _loading = true;
+    private bool _busy;
+    private bool _showForm;
+    private string _authorId = "";
+
+    private string _title = "";
+    private string _body = "";
+    private AnnouncementCategory _category = AnnouncementCategory.General;
+    private DateTime? _expiresAt;
+    private string _formError = "";
+
+    private string? _toast;
+    private string _toastType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!TenantCtx.IsResolved)
+        {
+            var tenant = await TenantSvc.ResolveBySlugAsync(TenantSlug);
+            if (tenant is not null)
+            {
+                TenantCtx.TenantId   = tenant.Id;
+                TenantCtx.TenantSlug = tenant.Slug;
+                TenantCtx.TenantName = tenant.Name;
+                TenantCtx.IsResolved = true;
+            }
+        }
+
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        _authorId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading       = true;
+        _announcements = await AnnouncementSvc.GetAllAsync();
+        _loading       = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        _formError = "";
+        if (string.IsNullOrWhiteSpace(_title)) { _formError = "Title is required."; return; }
+        if (string.IsNullOrWhiteSpace(_body))  { _formError = "Message is required."; return; }
+
+        _busy = true;
+        try
+        {
+            DateTime? expires = _expiresAt.HasValue
+                ? DateTime.SpecifyKind(_expiresAt.Value, DateTimeKind.Local).ToUniversalTime()
+                : null;
+            await AnnouncementSvc.CreateAsync(_title, _body, _category, expires, _authorId);
+            CancelForm();
+            await LoadAsync();
+            ShowToast("Announcement published.", "success");
+        }
+        catch (Exception ex) { _formError = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleAsync(Guid id)
+    {
+        _busy = true;
+        try { await AnnouncementSvc.ToggleActiveAsync(id); await LoadAsync(); }
+        catch (Exception ex) { ShowToast(ex.Message, "danger"); }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _busy = true;
+        try { await AnnouncementSvc.DeleteAsync(id); await LoadAsync(); ShowToast("Deleted.", "warning"); }
+        catch (Exception ex) { ShowToast(ex.Message, "danger"); }
+        finally { _busy = false; }
+    }
+
+    private void CancelForm()
+    {
+        _showForm  = false;
+        _title     = "";
+        _body      = "";
+        _category  = AnnouncementCategory.General;
+        _expiresAt = null;
+        _formError = "";
+    }
+
+    private void ShowToast(string message, string type)
+    {
+        _toast     = message;
+        _toastType = type;
+        _ = Task.Delay(4000).ContinueWith(_ => { _toast = null; InvokeAsync(StateHasChanged); });
+    }
+
+    private static string CategoryBadge(AnnouncementCategory c) => c switch
+    {
+        AnnouncementCategory.Urgent      => "<span class=\"badge bg-danger\">Urgent</span>",
+        AnnouncementCategory.Maintenance => "<span class=\"badge bg-warning text-dark\">Maintenance</span>",
+        AnnouncementCategory.Event       => "<span class=\"badge bg-info text-dark\">Event</span>",
+        _                                => "<span class=\"badge bg-secondary\">General</span>"
+    };
+}

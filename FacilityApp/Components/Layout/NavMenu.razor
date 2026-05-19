@@ -2,6 +2,7 @@
 @inject TenantContext TenantCtx
 @inject IUnitRequestService UnitRequestSvc
 @inject IMaintenanceService MaintenanceSvc
+@inject IIncidentService IncidentSvc
 
 <div class="top-row ps-3 navbar navbar-dark" style="@BrandingStyle">
     <div class="container-fluid d-flex align-items-center">
@@ -72,6 +73,16 @@
                 </NavLink>
             </div>
 
+            <div class="nav-item px-3">
+                <NavLink class="nav-link d-flex align-items-center justify-content-between" href="@($"{TenantCtx.RouteBase}/incidents")">
+                    <span><i class="bi bi-exclamation-triangle me-2"></i> Incidents</span>
+                    @if (_openIncidentCount > 0)
+                    {
+                        <span class="badge bg-danger ms-1">@_openIncidentCount</span>
+                    }
+                </NavLink>
+            </div>
+
             <AuthorizeView Policy="CanManageAccess" Context="_ac">
                 <div class="nav-section-label px-3 mt-3 mb-1">
                     <small class="text-white-50 text-uppercase fw-semibold" style="font-size: 0.65rem; letter-spacing: 0.08em;">Access Control</small>
@@ -107,6 +118,16 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/admin/users")">
                         <i class="bi bi-people me-2"></i> User Management
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/admin/announcements")">
+                        <i class="bi bi-megaphone me-2"></i> Announcements
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="@($"{TenantCtx.RouteBase}/admin/documents")">
+                        <i class="bi bi-folder2-open me-2"></i> Documents
                     </NavLink>
                 </div>
             </AuthorizeView>
@@ -213,13 +234,15 @@
 @code {
     private int _pendingRequestCount;
     private int _openMaintenanceCount;
+    private int _openIncidentCount;
 
     protected override async Task OnInitializedAsync()
     {
         if (TenantCtx.IsResolved)
         {
-            _pendingRequestCount   = await UnitRequestSvc.GetPendingCountAsync();
-            _openMaintenanceCount  = await MaintenanceSvc.GetOpenCountAsync();
+            _pendingRequestCount  = await UnitRequestSvc.GetPendingCountAsync();
+            _openMaintenanceCount = await MaintenanceSvc.GetOpenCountAsync();
+            _openIncidentCount    = await IncidentSvc.GetOpenCountAsync();
         }
     }
 
