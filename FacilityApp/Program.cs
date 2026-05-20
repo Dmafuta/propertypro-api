@@ -3,6 +3,7 @@ using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using FacilityApp.Hubs;
 using FacilityApp.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
