@@ -210,6 +210,10 @@ namespace FacilityApp
                 rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             });
 
+            // Persist DataProtection keys to a volume so sessions survive container restarts
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new System.IO.DirectoryInfo("/app/keys"));
+
             // Multi-tenancy
             builder.Services.AddScoped<TenantContext>();
             builder.Services.AddScoped<ITenantService, TenantService>();
@@ -251,11 +255,9 @@ namespace FacilityApp
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Error");
-                app.UseHsts();
             }
 
             app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-            app.UseHttpsRedirection();
 
             // Security headers
             app.Use(async (context, next) =>

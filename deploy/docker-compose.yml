@@ -26,6 +26,7 @@ services:
     volumes:
       - uploads:/app/wwwroot/uploads
       - documents:/app/wwwroot/documents
+      - dataprotection:/app/keys
 
   db:
     image: postgres:16-alpine
@@ -64,6 +65,7 @@ volumes:
   pgdata:
   uploads:
   documents:
+  dataprotection:
   caddy_data:
   caddy_config:
 
