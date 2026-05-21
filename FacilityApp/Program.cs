@@ -213,7 +213,9 @@ namespace FacilityApp
 
             // Persist DataProtection keys to a volume so sessions survive container restarts
             builder.Services.AddDataProtection()
-                .PersistKeysToFileSystem(new System.IO.DirectoryInfo("/app/keys"));
+                .PersistKeysToFileSystem(new System.IO.DirectoryInfo("/app/keys"))
+                .SetApplicationName("FacilityApp")
+                .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
 
             // Multi-tenancy
             builder.Services.AddScoped<TenantContext>();
