@@ -41,7 +41,6 @@
                 </div>
                 <div class="card-body">
                     <EditForm Model="_form" OnValidSubmit="HandleAsync">
-                        <AntiForgeryToken />
                         <DataAnnotationsValidator />
 
                         @if (_error is not null)
