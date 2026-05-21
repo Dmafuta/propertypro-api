@@ -52,13 +52,17 @@
 
                         <div class="mb-3">
                             <label class="form-label fw-medium small">Facility Name <span class="text-danger">*</span></label>
-                            <InputText class="form-control" @bind-Value="_form.FacilityName" placeholder="Sunrise Towers" />
+                            <InputText class="form-control" @bind-Value="_form.FacilityName"
+                                       @bind-Value:after="AutoSlug"
+                                       placeholder="Sunrise Towers" />
                             <ValidationMessage For="() => _form.FacilityName" class="text-danger small" />
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-medium small">URL Slug <span class="text-danger">*</span></label>
-                            <InputText class="form-control" @bind-Value="_form.Slug" placeholder="sunrise-towers" />
-                            <div class="form-text">Lowercase letters, numbers and hyphens only.</div>
+                            <InputText class="form-control" @bind-Value="_form.Slug"
+                                       @bind-Value:after="NormaliseSlug"
+                                       placeholder="sunrise-towers" />
+                            <div class="form-text">Lowercase letters, numbers and hyphens only. Auto-filled from name.</div>
                             <ValidationMessage For="() => _form.Slug" class="text-danger small" />
                         </div>
                         <div class="mb-4">
@@ -126,6 +130,25 @@
     private string? _error;
     private string _createdSlug = "";
 
+    private bool _slugEdited;
+
+    private void AutoSlug()
+    {
+        if (!_slugEdited)
+            _form.Slug = ToSlug(_form.FacilityName);
+    }
+
+    private void NormaliseSlug()
+    {
+        _slugEdited = !string.IsNullOrEmpty(_form.Slug);
+        _form.Slug  = ToSlug(_form.Slug);
+    }
+
+    private static string ToSlug(string? value) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            (value ?? "").Trim().ToLower(),
+            @"[^a-z0-9]+", "-").Trim('-');
+
     private async Task HandleAsync()
     {
         _busy = true; _error = null;
@@ -153,18 +176,18 @@
 
             var user = new ApplicationUser
             {
-                UserName = _form.AdminEmail,
-                Email    = _form.AdminEmail,
-                FullName = _form.AdminName.Trim(),
-                TenantId = tenant.Id,
-                UserType = UserType.Staff
+                UserName       = _form.AdminEmail,
+                Email          = _form.AdminEmail,
+                EmailConfirmed = true,
+                FullName       = _form.AdminName.Trim(),
+                TenantId       = tenant.Id,
+                UserType       = UserType.Staff
             };
 
             var result = await UserManager.CreateAsync(user, _form.Password);
             if (!result.Succeeded)
             {
-                Db.Tenants.Remove(tenant);
-                await Db.SaveChangesAsync();
+                try { Db.Tenants.Remove(tenant); await Db.SaveChangesAsync(); } catch { /* best-effort rollback */ }
                 _error = string.Join(" ", result.Errors.Select(e => e.Description));
                 return;
             }
