@@ -563,44 +563,12 @@ namespace FacilityApp
                 }
             });
 
-            // TEMPORARY DIAGNOSTIC — remove after confirming blazor.web.js path
-            app.MapGet("/diag-framework", (IWebHostEnvironment env) =>
-            {
-                var webRoot     = env.WebRootPath     ?? "NULL";
-                var contentRoot = env.ContentRootPath ?? "NULL";
-                var baseDir     = AppContext.BaseDirectory;
-                var fwDir       = Path.Combine(webRoot, "_framework");
-                var dirExists   = Directory.Exists(fwDir);
-                var files       = dirExists
-                    ? Directory.GetFiles(fwDir).Select(Path.GetFileName).OrderBy(f => f).ToArray()
-                    : new[] { "DIR_NOT_FOUND" };
-                return Results.Json(new { webRoot, contentRoot, baseDir, dirExists, files });
-            });
-
-            // Explicit endpoint for blazor.web.js — UseStaticFiles misses it when the
-            // published filename is fingerprinted (e.g. blazor.web.<hash>.js in .NET 10).
-            app.MapGet("/_framework/blazor.web.js", async (HttpContext ctx, IWebHostEnvironment env) =>
-            {
-                var webRoot = env.WebRootPath
-                    ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
-                var dir = Path.Combine(webRoot, "_framework");
-
-                string? file = null;
-                var plain = Path.Combine(dir, "blazor.web.js");
-                if (File.Exists(plain))
-                    file = plain;
-                else if (Directory.Exists(dir))
-                    file = Directory.GetFiles(dir, "blazor.web*.js").FirstOrDefault();
-
-                if (file is null) { ctx.Response.StatusCode = 404; return; }
-                ctx.Response.ContentType = "application/javascript";
-                ctx.Response.Headers.CacheControl = "no-cache";
-                await ctx.Response.SendFileAsync(file);
-            });
-
-            app.MapStaticAssets();
+            // MapRazorComponents first — serves embedded _framework/** files
+            // (blazor.web.js lives in the runtime, not in wwwroot in .NET 10)
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
+
+            app.MapStaticAssets();
 
             app.Run();
         }
