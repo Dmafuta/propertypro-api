@@ -218,6 +218,21 @@ namespace FacilityApp
                 .SetApplicationName("FacilityApp")
                 .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
 
+            // Trust Caddy's forwarded headers regardless of proxy IP.
+            // ASPNETCORE_FORWARDEDHEADERS_ENABLED=true (docker-compose) registers ForwardedHeaders
+            // middleware via IStartupFilter — it runs before all app middleware and reads its config
+            // from IOptions<ForwardedHeadersOptions>. Configure here so that early middleware pass
+            // correctly sets Host=greatwallgardens.estate and Scheme=https, which SignalR origin
+            // validation requires for the /_blazor WebSocket circuit to connect.
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                                         | ForwardedHeaders.XForwardedProto
+                                         | ForwardedHeaders.XForwardedHost;
+                options.KnownProxies.Clear();
+                options.KnownIPNetworks.Clear();
+            });
+
             // Multi-tenancy
             builder.Services.AddScoped<TenantContext>();
             builder.Services.AddScoped<ITenantService, TenantService>();
@@ -255,19 +270,6 @@ namespace FacilityApp
 
             // Seed Identity roles on startup
             await SeedRolesAsync(app);
-
-            // Trust Caddy's forwarded headers regardless of proxy IP.
-            // By default ASP.NET Core only trusts loopback (127.0.0.1); Caddy runs
-            // on a Docker internal IP so we must clear the allow-list to accept any proxy.
-            // Without this, the app sees Host:app:8080 instead of Host:greatwallgardens.estate,
-            // causing SignalR origin validation to reject /_blazor → circuit never connects.
-            var forwardedOptions = new ForwardedHeadersOptions
-            {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
-            };
-            forwardedOptions.KnownProxies.Clear();
-            forwardedOptions.KnownIPNetworks.Clear();
-            app.UseForwardedHeaders(forwardedOptions);
 
             if (!app.Environment.IsDevelopment())
             {
