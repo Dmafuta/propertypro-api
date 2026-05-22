@@ -312,20 +312,54 @@ namespace FacilityApp
                 await next();
             });
 
-            app.UseStaticFiles(); // serves wwwroot files including _framework/ copies
+            app.UseStaticFiles(); // serves wwwroot files
 
-            // Fallback: also serve /_framework/* from the content-root _framework/ directory.
-            // In some .NET 10 publish layouts the framework JS files land next to the DLL
-            // rather than inside wwwroot, so UseStaticFiles above misses them.
-            var contentFramework = Path.Combine(app.Environment.ContentRootPath, "_framework");
-            if (Directory.Exists(contentFramework))
+            // Runtime fallback: serve /_framework/blazor.web.js by locating the
+            // fingerprinted copy (blazor.web.<hash>.js) at startup and streaming it
+            // with the correct application/javascript Content-Type.
+            // This works regardless of whether the Dockerfile copy step succeeded,
+            // and covers both publish layouts (.NET 10 puts _framework/ inside wwwroot
+            // OR directly beside the DLL depending on the SDK version).
             {
-                app.UseStaticFiles(new StaticFileOptions
+                string? blazorJsPath = null;
+                foreach (var searchRoot in new[]
                 {
-                    FileProvider   = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(contentFramework),
-                    RequestPath    = "/_framework",
-                    ServeUnknownFileTypes = false,
-                });
+                    Path.Combine(app.Environment.WebRootPath ?? "", "_framework"),
+                    Path.Combine(app.Environment.ContentRootPath, "_framework"),
+                    Path.Combine(app.Environment.ContentRootPath, "wwwroot", "_framework"),
+                })
+                {
+                    if (!Directory.Exists(searchRoot)) continue;
+
+                    // Prefer the plain copy if the Dockerfile step succeeded
+                    var plain = Path.Combine(searchRoot, "blazor.web.js");
+                    if (File.Exists(plain)) { blazorJsPath = plain; break; }
+
+                    // Otherwise find the fingerprinted file
+                    var fingerprinted = Directory
+                        .GetFiles(searchRoot, "blazor.web.*.js")
+                        .Where(f => !f.EndsWith(".map", StringComparison.OrdinalIgnoreCase))
+                        .FirstOrDefault();
+                    if (fingerprinted != null) { blazorJsPath = fingerprinted; break; }
+                }
+
+                if (blazorJsPath != null)
+                {
+                    var cachedBytes = File.ReadAllBytes(blazorJsPath);
+                    app.Use(async (ctx, next) =>
+                    {
+                        if (ctx.Request.Path.Value?.Equals(
+                                "/_framework/blazor.web.js",
+                                StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            ctx.Response.ContentType = "application/javascript";
+                            ctx.Response.Headers.CacheControl = "no-cache";
+                            await ctx.Response.Body.WriteAsync(cachedBytes);
+                            return;
+                        }
+                        await next(ctx);
+                    });
+                }
             }
             app.UseRateLimiter();
             app.UseCors("BlazorHub"); // must be before UseAuthentication for SignalR WebSocket
