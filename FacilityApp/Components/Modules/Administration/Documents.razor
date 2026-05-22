@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/admin/documents"
 @page "/admin/documents"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanManageUsers")]
 @inject IDocumentService DocumentSvc
 @inject ITenantService TenantSvc

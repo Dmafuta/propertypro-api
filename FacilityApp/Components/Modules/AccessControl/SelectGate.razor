@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/select-gate"
 @page "/select-gate"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanCheckInVisitors")]
 @inject IEntranceService EntranceSvc
 @inject GateContext GateCtx

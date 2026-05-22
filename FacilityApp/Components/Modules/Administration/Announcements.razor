@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/admin/announcements"
 @page "/admin/announcements"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanManageUsers")]
 @inject IAnnouncementService AnnouncementSvc
 @inject ITenantService TenantSvc

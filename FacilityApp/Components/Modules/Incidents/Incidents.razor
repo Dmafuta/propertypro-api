@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/incidents"
 @page "/incidents"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanLogIncidents")]
 @inject IIncidentService IncidentSvc
 @inject ITenantService TenantSvc

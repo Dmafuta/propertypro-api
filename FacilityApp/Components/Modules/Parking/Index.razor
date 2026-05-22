@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/parking"
 @page "/parking"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanAccessParking")]
 @inject IParkingService ParkingSvc
 @inject IEntranceService EntranceSvc

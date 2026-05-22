@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/admin/entrances"
 @page "/admin/entrances"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanManageUsers")]
 @inject IEntranceService EntranceSvc
 @inject ITenantService TenantSvc

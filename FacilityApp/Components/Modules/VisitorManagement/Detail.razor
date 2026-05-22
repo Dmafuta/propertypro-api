@@ -1,6 +1,6 @@
 @page "/{TenantSlug}/visitors/{VisitId:guid}"
 @page "/visitors/{VisitId:guid}"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "CanCheckInVisitors")]
 @inject IVisitorService VisitorSvc
 @inject ITenantService TenantSvc
