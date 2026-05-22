@@ -8,21 +8,28 @@ RUN dotnet restore
 COPY . ./
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
-# .NET 10 fingerprints blazor.web.js (e.g. blazor.web.abc123.js).
-# Create a plain-URL copy so UseStaticFiles can serve /_framework/blazor.web.js.
-# Fails the build loudly if the file is not found so CI catches broken publish layouts.
+# Ensure /_framework/blazor.web.js is available at the plain URL.
+# .NET 10 SDK behaviour varies by version:
+#   - older builds: file is fingerprinted (blazor.web.<hash>.js) — copy to plain name
+#   - newer builds: file is already published as blazor.web.js — nothing to do
+# Fails the build if neither form is found so CI catches broken publish layouts.
 RUN set -e && \
     mkdir -p /app/publish/wwwroot/_framework && \
-    fp=$(find /app/publish -path "*/_framework/blazor.web.*.js" ! -name "*.map" | head -1) && \
-    if [ -n "$fp" ]; then \
-        echo "Found fingerprinted blazor.web.js: $fp"; \
-        cp "$fp" /app/publish/wwwroot/_framework/blazor.web.js; \
-        echo "Plain copy created."; \
+    plain=/app/publish/wwwroot/_framework/blazor.web.js && \
+    if [ -f "$plain" ]; then \
+        echo "blazor.web.js already present (plain publish)."; \
     else \
-        echo "WARNING: fingerprinted blazor.web.js not found"; \
-        find /app/publish -name "_framework" -type d || true; \
-        find /app/publish -name "blazor*" 2>/dev/null || true; \
-        exit 1; \
+        fp=$(find /app/publish -path "*/_framework/blazor.web.*.js" ! -name "*.map" | head -1); \
+        if [ -n "$fp" ]; then \
+            echo "Found fingerprinted blazor.web.js: $fp"; \
+            cp "$fp" "$plain"; \
+            echo "Plain copy created."; \
+        else \
+            echo "ERROR: blazor.web.js not found in any expected location."; \
+            find /app/publish -name "_framework" -type d || true; \
+            find /app/publish -name "blazor*" 2>/dev/null || true; \
+            exit 1; \
+        fi; \
     fi
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
