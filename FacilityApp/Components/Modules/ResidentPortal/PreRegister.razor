@@ -2,7 +2,7 @@
 @page "/resident/preregister"
 @layout ResidentLayout
 @rendermode InteractiveServer
-@attribute [Authorize(Policy = "CanPreRegisterVisits")]
+@attribute [Authorize]
 @inject IVisitorService VisitorSvc
 @inject ITenantService TenantSvc
 @inject TenantContext TenantCtx
@@ -23,7 +23,7 @@
 
 <div class="row g-4">
     <div class="col-lg-7">
-        <EditForm Model="_form" OnValidSubmit="SubmitAsync" FormName="resident-preregister">
+        <EditForm Model="_form" OnValidSubmit="SubmitAsync">
             <DataAnnotationsValidator />
 
             @if (_error is not null)
