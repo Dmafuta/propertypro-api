@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserMgr
 @implements IDisposable
 
 <PageTitle>Dashboard — @(TenantCtx.IsResolved ? TenantCtx.TenantName : TenantSlug)</PageTitle>
@@ -460,7 +461,12 @@ else
         loading = true;
         tenantNotFound = false;
 
-        if (!TenantCtx.IsResolved)
+        // Resolve auth state first — needed for both the ownership check and the staff redirect
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user      = authState.User;
+
+        // Re-resolve when the context is missing OR the slug changed during soft navigation
+        if (!TenantCtx.IsResolved || (!TenantCtx.IsCustomDomain && TenantCtx.TenantSlug != TenantSlug))
         {
             var tenant = await TenantService.ResolveBySlugAsync(TenantSlug);
             if (tenant == null)
@@ -470,16 +476,31 @@ else
                 return;
             }
 
-            TenantCtx.TenantId = tenant.Id;
+            // Security: verify the authenticated user belongs to this tenant.
+            // SuperAdmin is exempt (cross-tenant by design).
+            if (!user.IsInRole(Program.RoleSuperAdmin))
+            {
+                var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (userId is not null)
+                {
+                    var appUser = await UserMgr.FindByIdAsync(userId);
+                    if (appUser is null || appUser.TenantId != tenant.Id)
+                    {
+                        Nav.NavigateTo("/access-denied", replace: true);
+                        loading = false;
+                        return;
+                    }
+                }
+            }
+
+            TenantCtx.TenantId   = tenant.Id;
             TenantCtx.TenantSlug = tenant.Slug;
             TenantCtx.TenantName = tenant.Name;
             TenantCtx.IsResolved = true;
         }
 
         // Redirect residents (non-staff) to the resident portal
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        bool isStaff = user.IsInRole(Program.RoleAdmin) || user.IsInRole(Program.RoleManager) ||
+        bool isStaff = user.IsInRole(Program.RoleAdmin)  || user.IsInRole(Program.RoleManager) ||
                        user.IsInRole(Program.RoleReceptionist) || user.IsInRole(Program.RoleSecurity);
         if (!isStaff)
         {

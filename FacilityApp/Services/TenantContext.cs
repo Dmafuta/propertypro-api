@@ -22,4 +22,21 @@ public class TenantContext
     /// Use as: href="@(TenantCtx.RouteBase)/dashboard"
     /// </summary>
     public string RouteBase => IsCustomDomain ? "" : (string.IsNullOrEmpty(TenantSlug) ? "" : $"/{TenantSlug}");
+
+    /// <summary>
+    /// Clears all resolved state so the next component initialisation re-resolves
+    /// from the URL. Called by MainLayout when the slug changes during soft navigation.
+    /// </summary>
+    public void Reset()
+    {
+        TenantId       = Guid.Empty;
+        TenantSlug     = string.Empty;
+        TenantName     = string.Empty;
+        IsResolved     = false;
+        PrimaryColour  = null;
+        LogoUrl        = null;
+        Plan           = TenantPlan.Starter;
+        IsSystem       = false;
+        IsCustomDomain = false;
+    }
 }

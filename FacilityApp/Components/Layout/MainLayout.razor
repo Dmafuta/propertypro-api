@@ -59,6 +59,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Resolve auth state once and reuse throughout this method
+        var auth   = await AuthState.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
         if (!TenantCtx.IsResolved)
         {
             var slug = new Uri(Nav.Uri).AbsolutePath.Trim('/').Split('/').FirstOrDefault();
@@ -67,6 +71,20 @@
                 var tenant = await TenantService.ResolveBySlugAsync(slug);
                 if (tenant is not null)
                 {
+                    // Security: verify the authenticated user belongs to this tenant.
+                    // SuperAdmin is exempt (cross-tenant by design).
+                    if (auth.User.Identity?.IsAuthenticated == true &&
+                        !auth.User.IsInRole("SuperAdmin") &&
+                        userId is not null)
+                    {
+                        var appUser = await UserMgr.FindByIdAsync(userId);
+                        if (appUser is null || appUser.TenantId != tenant.Id)
+                        {
+                            Nav.NavigateTo("/access-denied", replace: true);
+                            return;
+                        }
+                    }
+
                     TenantCtx.TenantId      = tenant.Id;
                     TenantCtx.TenantSlug    = tenant.Slug;
                     TenantCtx.TenantName    = tenant.Name;
@@ -79,31 +97,26 @@
 
         if (TenantCtx.IsResolved && !GateCtx.IsSelected)
         {
-            var auth = await AuthState.GetAuthenticationStateAsync();
             if (auth.User.Identity?.IsAuthenticated == true)
             {
                 var isStaff = auth.User.IsInRole("Security") || auth.User.IsInRole("Receptionist") ||
                               auth.User.IsInRole("Manager")  || auth.User.IsInRole("Admin");
-                if (isStaff)
+                if (isStaff && userId is not null)
                 {
-                    var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                    if (userId is not null)
+                    try
                     {
-                        try
+                        var user = await UserMgr.FindByIdAsync(userId);
+                        if (user?.CurrentEntranceId is not null)
                         {
-                            var user = await UserMgr.FindByIdAsync(userId);
-                            if (user?.CurrentEntranceId is not null)
+                            var entrance = await EntranceSvc.GetByIdAsync(user.CurrentEntranceId.Value);
+                            if (entrance is not null && entrance.IsActive)
                             {
-                                var entrance = await EntranceSvc.GetByIdAsync(user.CurrentEntranceId.Value);
-                                if (entrance is not null && entrance.IsActive)
-                                {
-                                    GateCtx.EntranceId   = entrance.Id;
-                                    GateCtx.EntranceName = entrance.Name;
-                                }
+                                GateCtx.EntranceId   = entrance.Id;
+                                GateCtx.EntranceName = entrance.Name;
                             }
                         }
-                        catch { /* gate selection is non-critical */ }
                     }
+                    catch { /* gate selection is non-critical */ }
 
                     if (!GateCtx.IsSelected)
                     {
@@ -119,6 +132,22 @@
                 }
             }
         }
+    }
+
+    // Fix #4 — context stickiness: reset TenantContext when the user soft-navigates
+    // to a different slug so page components re-resolve and re-validate ownership.
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            Nav.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (TenantCtx.IsCustomDomain) return; // custom-domain tenants never change slug
+        var newSlug = new Uri(e.Location).AbsolutePath.Trim('/').Split('/').FirstOrDefault() ?? "";
+        if (!string.Equals(newSlug, TenantCtx.TenantSlug, StringComparison.OrdinalIgnoreCase))
+            TenantCtx.Reset();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -168,6 +197,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Nav.LocationChanged -= HandleLocationChanged;
         try
         {
             if (_signalRConnection is not null)

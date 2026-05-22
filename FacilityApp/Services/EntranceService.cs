@@ -68,6 +68,11 @@ public class EntranceService : IEntranceService
         var user = await _db.Users.IgnoreQueryFilters()
                               .FirstOrDefaultAsync(u => u.Id == userId)
             ?? throw new InvalidOperationException("User not found.");
+
+        // IgnoreQueryFilters() bypasses tenant isolation, so we must verify ownership explicitly
+        if (user.TenantId != _tenantCtx.TenantId)
+            throw new InvalidOperationException("User does not belong to the current tenant.");
+
         user.CurrentEntranceId = entranceId;
         await _db.SaveChangesAsync();
     }

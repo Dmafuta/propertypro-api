@@ -442,6 +442,18 @@ namespace FacilityApp
 
                 var tenant = await tenantSvc.ResolveBySlugAsync(tenantSlug);
                 if (tenant is null) return Results.NotFound();
+
+                // Verify the caller belongs to this tenant (SuperAdmin may export any tenant)
+                if (!httpCtx.User.IsInRole(RoleSuperAdmin))
+                {
+                    var userIdClaim = httpCtx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                    if (userIdClaim is null) return Results.Unauthorized();
+                    var userMgr = httpCtx.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+                    var appUser = await userMgr.FindByIdAsync(userIdClaim);
+                    if (appUser is null || appUser.TenantId != tenant.Id)
+                        return Results.Forbid();
+                }
+
                 tenantCtx.TenantId = tenant.Id;
 
                 var fromDate = DateOnly.TryParse(from, out var fd)
