@@ -6,31 +6,38 @@ namespace FacilityApp.Services;
 
 public class IncidentService : IIncidentService
 {
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly TenantContext _tenantCtx;
     private readonly IAuditService _audit;
 
-    public IncidentService(AppDbContext db, TenantContext tenantCtx, IAuditService audit)
+    public IncidentService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx, IAuditService audit)
     {
-        _db        = db;
+        _factory   = factory;
         _tenantCtx = tenantCtx;
         _audit     = audit;
     }
 
-    public Task<List<IncidentReport>> GetAllAsync() =>
-        _db.IncidentReports
+    public async Task<List<IncidentReport>> GetAllAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.IncidentReports
            .Include(i => i.ReportedBy)
            .Include(i => i.ResolvedBy)
            .OrderByDescending(i => i.ReportedAt)
            .ToListAsync();
+    }
 
-    public Task<int> GetOpenCountAsync() =>
-        _db.IncidentReports
+    public async Task<int> GetOpenCountAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.IncidentReports
            .CountAsync(i => i.Status == IncidentStatus.Open || i.Status == IncidentStatus.UnderReview);
+    }
 
     public async Task<IncidentReport> CreateAsync(string title, string description, string location,
         string? involvedParties, IncidentCategory category, IncidentSeverity severity, string reportedById)
     {
+        await using var db = await _factory.CreateDbContextAsync();
         var incident = new IncidentReport
         {
             TenantId        = _tenantCtx.TenantId,
@@ -42,8 +49,8 @@ public class IncidentService : IIncidentService
             Severity        = severity,
             ReportedById    = reportedById
         };
-        _db.IncidentReports.Add(incident);
-        await _db.SaveChangesAsync();
+        db.IncidentReports.Add(incident);
+        await db.SaveChangesAsync();
 
         await _audit.LogAsync("IncidentLogged", "IncidentReport", incident.Id.ToString(),
             $"{severity} {category} incident: {title}", reportedById);
@@ -53,7 +60,8 @@ public class IncidentService : IIncidentService
 
     public async Task UpdateStatusAsync(Guid id, IncidentStatus status, string? resolutionNotes, string resolvedById)
     {
-        var incident = await _db.IncidentReports.FindAsync(id)
+        await using var db = await _factory.CreateDbContextAsync();
+        var incident = await db.IncidentReports.FindAsync(id)
             ?? throw new InvalidOperationException("Incident not found.");
 
         incident.Status          = status;
@@ -65,7 +73,7 @@ public class IncidentService : IIncidentService
             incident.ResolvedAt   = DateTime.UtcNow;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         await _audit.LogAsync("IncidentStatusUpdated", "IncidentReport", id.ToString(),
             $"Status changed to {status}", resolvedById);
@@ -73,9 +81,10 @@ public class IncidentService : IIncidentService
 
     public async Task DeleteAsync(Guid id)
     {
-        var incident = await _db.IncidentReports.FindAsync(id)
+        await using var db = await _factory.CreateDbContextAsync();
+        var incident = await db.IncidentReports.FindAsync(id)
             ?? throw new InvalidOperationException("Incident not found.");
-        _db.IncidentReports.Remove(incident);
-        await _db.SaveChangesAsync();
+        db.IncidentReports.Remove(incident);
+        await db.SaveChangesAsync();
     }
 }

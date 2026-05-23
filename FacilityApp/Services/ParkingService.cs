@@ -6,12 +6,12 @@ namespace FacilityApp.Services;
 
 public class ParkingService : IParkingService
 {
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly TenantContext _tenantCtx;
 
-    public ParkingService(AppDbContext db, TenantContext tenantCtx)
+    public ParkingService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx)
     {
-        _db        = db;
+        _factory   = factory;
         _tenantCtx = tenantCtx;
     }
 
@@ -19,7 +19,8 @@ public class ParkingService : IParkingService
 
     public async Task<List<Vehicle>> GetVehiclesForResidentAsync(string residentId)
     {
-        return await _db.Vehicles
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.Vehicles
             .Include(v => v.Tag)
             .Where(v => v.OwnerId == residentId)
             .OrderBy(v => v.PlateNumber)
@@ -28,7 +29,8 @@ public class ParkingService : IParkingService
 
     public async Task<List<Vehicle>> GetAllVehiclesAsync()
     {
-        return await _db.Vehicles
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.Vehicles
             .Include(v => v.Owner)
             .Include(v => v.Tag)
             .OrderBy(v => v.Owner.FullName)
@@ -38,6 +40,7 @@ public class ParkingService : IParkingService
 
     public async Task<Vehicle> RegisterVehicleAsync(string ownerId, string plate, string make, string model, string colour, VehicleType type, string? notes)
     {
+        await using var db = await _factory.CreateDbContextAsync();
         var vehicle = new Vehicle
         {
             TenantId    = _tenantCtx.TenantId,
@@ -50,32 +53,33 @@ public class ParkingService : IParkingService
             Notes       = notes?.Trim()
         };
 
-        _db.Vehicles.Add(vehicle);
-        await _db.SaveChangesAsync();
+        db.Vehicles.Add(vehicle);
+        await db.SaveChangesAsync();
         return vehicle;
     }
 
     public async Task DeleteVehicleAsync(Guid vehicleId)
     {
-        var vehicle = await _db.Vehicles.FindAsync(vehicleId)
+        await using var db = await _factory.CreateDbContextAsync();
+        var vehicle = await db.Vehicles.FindAsync(vehicleId)
             ?? throw new InvalidOperationException("Vehicle not found.");
-        _db.Vehicles.Remove(vehicle);
-        await _db.SaveChangesAsync();
+        db.Vehicles.Remove(vehicle);
+        await db.SaveChangesAsync();
     }
 
     // ── Tags ───────────────────────────────────────────────────────────────────
 
     public async Task<VehicleTag> IssueTagAsync(Guid vehicleId, string issuedById, DateTime? expiresAt, string? notes)
     {
-        var vehicle = await _db.Vehicles.FindAsync(vehicleId)
+        await using var db = await _factory.CreateDbContextAsync();
+        _ = await db.Vehicles.FindAsync(vehicleId)
             ?? throw new InvalidOperationException("Vehicle not found.");
 
-        // Check if already has an active tag
-        var existing = await _db.VehicleTags.FirstOrDefaultAsync(t => t.VehicleId == vehicleId);
+        var existing = await db.VehicleTags.FirstOrDefaultAsync(t => t.VehicleId == vehicleId);
         if (existing is not null)
             throw new InvalidOperationException("This vehicle already has a tag. Revoke it first.");
 
-        var tagNumber = await GenerateTagNumberAsync();
+        var tagNumber = await GenerateTagNumberAsync(db);
 
         var tag = new VehicleTag
         {
@@ -89,22 +93,24 @@ public class ParkingService : IParkingService
             Notes      = notes?.Trim()
         };
 
-        _db.VehicleTags.Add(tag);
-        await _db.SaveChangesAsync();
+        db.VehicleTags.Add(tag);
+        await db.SaveChangesAsync();
         return tag;
     }
 
     public async Task UpdateTagStatusAsync(Guid tagId, TagStatus status)
     {
-        var tag = await _db.VehicleTags.FindAsync(tagId)
+        await using var db = await _factory.CreateDbContextAsync();
+        var tag = await db.VehicleTags.FindAsync(tagId)
             ?? throw new InvalidOperationException("Tag not found.");
         tag.Status = status;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task<VehicleTag?> LookupTagAsync(string tagNumber)
     {
-        return await _db.VehicleTags
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.VehicleTags
             .Include(t => t.Vehicle)
                 .ThenInclude(v => v.Owner)
             .FirstOrDefaultAsync(t => t.TagNumber == tagNumber.Trim().ToUpperInvariant());
@@ -114,7 +120,10 @@ public class ParkingService : IParkingService
 
     public async Task<ParkingRecord> LogEntryByTagAsync(string tagNumber, string loggedById, Guid? entranceId)
     {
-        var tag = await LookupTagAsync(tagNumber)
+        await using var db = await _factory.CreateDbContextAsync();
+        var tag = await db.VehicleTags
+            .Include(t => t.Vehicle).ThenInclude(v => v.Owner)
+            .FirstOrDefaultAsync(t => t.TagNumber == tagNumber.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException($"Tag '{tagNumber}' not found.");
 
         if (tag.Status == TagStatus.Revoked)
@@ -124,8 +133,7 @@ public class ParkingService : IParkingService
         if (tag.Status == TagStatus.Expired || (tag.ExpiresAt.HasValue && tag.ExpiresAt.Value < DateTime.UtcNow))
             throw new InvalidOperationException($"Tag {tag.TagNumber} is EXPIRED. Entry denied.");
 
-        // Check if already inside (no exit recorded)
-        var alreadyInside = await _db.ParkingRecords
+        var alreadyInside = await db.ParkingRecords
             .AnyAsync(p => p.VehicleTagId == tag.Id && p.ExitedAt == null);
         if (alreadyInside)
             throw new InvalidOperationException($"Vehicle with tag {tag.TagNumber} is already logged inside.");
@@ -142,13 +150,14 @@ public class ParkingService : IParkingService
             EnteredAt       = DateTime.UtcNow
         };
 
-        _db.ParkingRecords.Add(record);
-        await _db.SaveChangesAsync();
+        db.ParkingRecords.Add(record);
+        await db.SaveChangesAsync();
         return record;
     }
 
     public async Task<ParkingRecord> LogVisitorEntryAsync(string plate, string loggedById, Guid? visitId, Guid? entranceId, string? notes)
     {
+        await using var db = await _factory.CreateDbContextAsync();
         var record = new ParkingRecord
         {
             TenantId        = _tenantCtx.TenantId,
@@ -161,14 +170,15 @@ public class ParkingService : IParkingService
             Notes           = notes?.Trim()
         };
 
-        _db.ParkingRecords.Add(record);
-        await _db.SaveChangesAsync();
+        db.ParkingRecords.Add(record);
+        await db.SaveChangesAsync();
         return record;
     }
 
     public async Task LogExitAsync(Guid recordId, string loggedById, Guid? exitEntranceId)
     {
-        var record = await _db.ParkingRecords.FindAsync(recordId)
+        await using var db = await _factory.CreateDbContextAsync();
+        var record = await db.ParkingRecords.FindAsync(recordId)
             ?? throw new InvalidOperationException("Parking record not found.");
 
         if (record.ExitedAt.HasValue)
@@ -176,12 +186,13 @@ public class ParkingService : IParkingService
 
         record.ExitedAt       = DateTime.UtcNow;
         record.ExitEntranceId = exitEntranceId;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task<List<ParkingRecord>> GetCurrentlyInsideAsync()
     {
-        return await _db.ParkingRecords
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.ParkingRecords
             .Include(p => p.Vehicle).ThenInclude(v => v!.Owner)
             .Include(p => p.VehicleTag)
             .Include(p => p.Visit).ThenInclude(v => v!.Visitor)
@@ -194,7 +205,8 @@ public class ParkingService : IParkingService
 
     public async Task<List<ParkingRecord>> GetRecordsAsync(DateOnly? from, DateOnly? to)
     {
-        var query = _db.ParkingRecords
+        await using var db = await _factory.CreateDbContextAsync();
+        var query = db.ParkingRecords
             .Include(p => p.Vehicle).ThenInclude(v => v!.Owner)
             .Include(p => p.VehicleTag)
             .Include(p => p.Visit).ThenInclude(v => v!.Visitor)
@@ -219,22 +231,21 @@ public class ParkingService : IParkingService
 
     public async Task<int> GetCurrentlyInsideCountAsync()
     {
-        return await _db.ParkingRecords.CountAsync(p => p.ExitedAt == null);
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.ParkingRecords.CountAsync(p => p.ExitedAt == null);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    private async Task<string> GenerateTagNumberAsync()
+    private static async Task<string> GenerateTagNumberAsync(AppDbContext db)
     {
-        // Find the highest existing tag number for this tenant (ignoring query filter for counting)
-        var allTags = await _db.VehicleTags
+        var allTags = await db.VehicleTags
             .Select(t => t.TagNumber)
             .ToListAsync();
 
         int max = 0;
         foreach (var num in allTags)
         {
-            // TagNumber format: TAG-XXXX
             if (num.StartsWith("TAG-") && int.TryParse(num[4..], out var n) && n > max)
                 max = n;
         }

@@ -7,7 +7,7 @@ namespace FacilityApp.Services;
 
 public class DocumentService : IDocumentService
 {
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly TenantContext _tenantCtx;
     private readonly IWebHostEnvironment _env;
 
@@ -24,25 +24,31 @@ public class DocumentService : IDocumentService
 
     private const long MaxBytes = 10 * 1024 * 1024; // 10 MB
 
-    public DocumentService(AppDbContext db, TenantContext tenantCtx, IWebHostEnvironment env)
+    public DocumentService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx, IWebHostEnvironment env)
     {
-        _db        = db;
+        _factory   = factory;
         _tenantCtx = tenantCtx;
         _env       = env;
     }
 
-    public Task<List<Document>> GetAllAsync() =>
-        _db.Documents
+    public async Task<List<Document>> GetAllAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.Documents
            .Include(d => d.UploadedBy)
            .OrderByDescending(d => d.UploadedAt)
            .ToListAsync();
+    }
 
-    public Task<List<Document>> GetActiveAsync() =>
-        _db.Documents
+    public async Task<List<Document>> GetActiveAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.Documents
            .Include(d => d.UploadedBy)
            .Where(d => d.IsActive)
            .OrderByDescending(d => d.UploadedAt)
            .ToListAsync();
+    }
 
     public async Task<Document> UploadAsync(string title, string? description, DocumentCategory category, IBrowserFile file, string uploadedById)
     {
@@ -63,6 +69,7 @@ public class DocumentService : IDocumentService
         await using var stream = new FileStream(fullPath, FileMode.Create);
         await file.OpenReadStream(MaxBytes).CopyToAsync(stream);
 
+        await using var db = await _factory.CreateDbContextAsync();
         var doc = new Document
         {
             TenantId         = _tenantCtx.TenantId,
@@ -74,29 +81,31 @@ public class DocumentService : IDocumentService
             FileSize         = file.Size,
             UploadedById     = uploadedById
         };
-        _db.Documents.Add(doc);
-        await _db.SaveChangesAsync();
+        db.Documents.Add(doc);
+        await db.SaveChangesAsync();
         return doc;
     }
 
     public async Task ToggleActiveAsync(Guid id)
     {
-        var d = await _db.Documents.FindAsync(id)
+        await using var db = await _factory.CreateDbContextAsync();
+        var d = await db.Documents.FindAsync(id)
             ?? throw new InvalidOperationException("Document not found.");
         d.IsActive = !d.IsActive;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        var d = await _db.Documents.FindAsync(id)
+        await using var db = await _factory.CreateDbContextAsync();
+        var d = await db.Documents.FindAsync(id)
             ?? throw new InvalidOperationException("Document not found.");
 
         var fullPath = Path.Combine(_env.WebRootPath, "documents", _tenantCtx.TenantSlug, d.StoredFileName);
         if (File.Exists(fullPath))
             File.Delete(fullPath);
 
-        _db.Documents.Remove(d);
-        await _db.SaveChangesAsync();
+        db.Documents.Remove(d);
+        await db.SaveChangesAsync();
     }
 }

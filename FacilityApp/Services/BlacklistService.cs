@@ -6,13 +6,13 @@ namespace FacilityApp.Services;
 
 public class BlacklistService : IBlacklistService
 {
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly TenantContext _tenantCtx;
     private readonly IAuditService _audit;
 
-    public BlacklistService(AppDbContext db, TenantContext tenantCtx, IAuditService audit)
+    public BlacklistService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx, IAuditService audit)
     {
-        _db        = db;
+        _factory   = factory;
         _tenantCtx = tenantCtx;
         _audit     = audit;
     }
@@ -23,22 +23,23 @@ public class BlacklistService : IBlacklistService
         DateTime? expiresAt, string? notes,
         string addedByUserId, string addedByName)
     {
+        await using var db = await _factory.CreateDbContextAsync();
         var entry = new BlacklistEntry
         {
-            TenantId       = _tenantCtx.TenantId,
-            FullName       = fullName.Trim(),
-            Email          = email?.Trim().ToLower(),
-            Phone          = phone?.Trim(),
-            Reason         = reason.Trim(),
-            EntryType      = entryType,
-            ExpiresAt      = expiresAt,
-            Notes          = notes?.Trim(),
-            AddedByUserId  = addedByUserId,
-            AddedByName    = addedByName,
-            IsActive       = true
+            TenantId      = _tenantCtx.TenantId,
+            FullName      = fullName.Trim(),
+            Email         = email?.Trim().ToLower(),
+            Phone         = phone?.Trim(),
+            Reason        = reason.Trim(),
+            EntryType     = entryType,
+            ExpiresAt     = expiresAt,
+            Notes         = notes?.Trim(),
+            AddedByUserId = addedByUserId,
+            AddedByName   = addedByName,
+            IsActive      = true
         };
-        _db.BlacklistEntries.Add(entry);
-        await _db.SaveChangesAsync();
+        db.BlacklistEntries.Add(entry);
+        await db.SaveChangesAsync();
 
         await _audit.LogAsync(
             entryType == BlacklistType.Blacklisted ? "Blacklist" : "Watchlist",
@@ -51,10 +52,11 @@ public class BlacklistService : IBlacklistService
 
     public async Task RemoveAsync(Guid id)
     {
-        var entry = await _db.BlacklistEntries.FindAsync(id)
+        await using var db = await _factory.CreateDbContextAsync();
+        var entry = await db.BlacklistEntries.FindAsync(id)
             ?? throw new InvalidOperationException("Entry not found.");
         entry.IsActive = false;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         await _audit.LogAsync("RemoveFromList", "BlacklistEntry", id.ToString(),
             $"{entry.FullName} removed from {entry.EntryType}");
@@ -63,7 +65,8 @@ public class BlacklistService : IBlacklistService
     public async Task<(List<BlacklistEntry> Items, int Total)> GetEntriesAsync(
         string? search, string? type, int page = 1, int pageSize = 25)
     {
-        var q = _db.BlacklistEntries.Where(e => e.IsActive).AsQueryable();
+        await using var db = await _factory.CreateDbContextAsync();
+        var q = db.BlacklistEntries.Where(e => e.IsActive).AsQueryable();
 
         if (type == "blacklisted")
             q = q.Where(e => e.EntryType == BlacklistType.Blacklisted);
@@ -92,17 +95,17 @@ public class BlacklistService : IBlacklistService
 
     public async Task<BlacklistEntry?> CheckAsync(string? email, string? phone, Guid? entranceId = null)
     {
+        await using var db = await _factory.CreateDbContextAsync();
         var now       = DateTime.UtcNow;
         var emailNorm = email?.Trim().ToLower();
 
-        return await _db.BlacklistEntries
+        return await db.BlacklistEntries
             .Where(e => e.IsActive &&
                         (e.ExpiresAt == null || e.ExpiresAt > now) &&
-                        // Global entry (no entrance) or matches the specific entrance being checked
                         (e.EntranceId == null || (entranceId != null && e.EntranceId == entranceId)) &&
                         ((emailNorm != null && e.Email == emailNorm) ||
                          (phone != null && e.Phone == phone.Trim())))
-            .OrderBy(e => e.EntryType) // Blacklisted=0 sorts first
+            .OrderBy(e => e.EntryType)
             .FirstOrDefaultAsync();
     }
 }
