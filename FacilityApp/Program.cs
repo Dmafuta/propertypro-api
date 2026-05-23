@@ -58,10 +58,42 @@ namespace FacilityApp
             {
                 options.AddPolicy("BlazorHub", policy =>
                 {
-                    if (allowedOrigins.Length > 0)
-                        policy.WithOrigins(allowedOrigins);
+                    if (allowedOrigins.Length == 0)
+                    {
+                        // Dev / unconfigured: allow all origins
+                        policy.SetIsOriginAllowed(_ => true);
+                    }
                     else
-                        policy.SetIsOriginAllowed(_ => true); // dev / unconfigured fallback
+                    {
+                        // Production: allow explicitly listed origins, plus any active
+                        // tenant custom domain resolved from the database at request time.
+                        // Adding a new custom-domain tenant works immediately without
+                        // restarting the app or updating the AllowedOrigins list.
+                        policy.SetIsOriginAllowed(origin =>
+                        {
+                            if (allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+                                return true;
+
+                            try
+                            {
+                                var host = new Uri(origin).Host.ToLower();
+                                using var conn = new NpgsqlConnection(connStr);
+                                conn.Open();
+                                using var cmd = conn.CreateCommand();
+                                cmd.CommandText = """
+                                    SELECT 1 FROM tenants
+                                    WHERE LOWER("CustomDomain") = @host AND "IsActive" = true
+                                    LIMIT 1
+                                    """;
+                                cmd.Parameters.AddWithValue("host", host);
+                                return cmd.ExecuteScalar() is not null;
+                            }
+                            catch
+                            {
+                                return false;
+                            }
+                        });
+                    }
                     policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
                 });
             });
@@ -305,7 +337,8 @@ namespace FacilityApp
             app.Use(async (context, next) =>
             {
                 context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-                context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
+                context.Response.Headers.Append("X-Frame-Options", "DENY");
+                context.Response.Headers.Append("Content-Security-Policy", "frame-ancestors 'none'");
                 context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
                 context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
                 context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
