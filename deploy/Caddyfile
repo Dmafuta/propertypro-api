@@ -22,12 +22,23 @@ greatwallgardens.estate {
         # /_blazor circuit is rejected with 403 and all buttons go dead).
         header_up Host {host}
 
-        # Pass real client IP and protocol for rate limiting / HTTPS awareness
-        header_up X-Forwarded-For {remote_host}
+        # Pass the protocol so ASP.NET Core sets Request.IsHttps = true,
+        # giving auth cookies the Secure flag in production.
         header_up X-Forwarded-Proto {scheme}
+
+        # X-Forwarded-For: Caddy appends the real client IP automatically —
+        # no header_up needed. An explicit set would overwrite the chain and
+        # lose the real IP if a CDN sits in front of Caddy.
+
+        # Flush immediately so Blazor Server SignalR frames and long-poll
+        # responses are not held in Caddy's buffer.
+        flush_interval -1
     }
     encode gzip
     header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    # Strip the Server header so neither "Caddy" nor "Kestrel" is revealed
+    # to clients.
+    header -Server
 }
 
 # sunsetapartments.com {
