@@ -46,6 +46,11 @@ namespace FacilityApp
 
             builder.Services.AddSignalR();
 
+            // Singleton Npgsql data source — used by TenantService for concurrent-safe tenant resolution,
+            // and by the CORS origin check below. Created eagerly so the CORS callback can capture it.
+            var npgsqlDataSource = NpgsqlDataSource.Create(connStr!);
+            builder.Services.AddSingleton(npgsqlDataSource);
+
             // CORS for the Blazor SignalR circuit (/_blazor) and notification hub.
             // When an explicit CORS policy with AllowCredentials() is present,
             // ASP.NET Core SignalR defers origin validation to CORS instead of
@@ -77,8 +82,7 @@ namespace FacilityApp
                             try
                             {
                                 var host = new Uri(origin).Host.ToLower();
-                                using var conn = new NpgsqlConnection(connStr);
-                                conn.Open();
+                                using var conn = npgsqlDataSource.OpenConnection();
                                 using var cmd = conn.CreateCommand();
                                 cmd.CommandText = """
                                     SELECT 1 FROM tenants
@@ -97,9 +101,6 @@ namespace FacilityApp
                     policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
                 });
             });
-
-            // Singleton Npgsql data source — used by TenantService for concurrent-safe tenant resolution
-            builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connStr!));
 
             // Database
             builder.Services.AddDbContext<AppDbContext>(options =>
