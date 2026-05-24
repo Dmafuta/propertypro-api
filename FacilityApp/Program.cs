@@ -499,7 +499,7 @@ namespace FacilityApp
                 return Results.File(bytes, "text/csv; charset=utf-8", filename);
             });
 
-            // ⚠️  TEMPORARY — remove after use
+            //  TEMPORARY — remove after use
             if (app.Environment.IsDevelopment())
             {
                 app.MapGet("/dev/list-users", (AppDbContext db) =>

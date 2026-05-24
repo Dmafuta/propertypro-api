@@ -23,6 +23,10 @@
 {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
 }
+else if (_error is not null)
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@_error</div>
+}
 else
 {
     <!-- Stats row -->
@@ -178,6 +182,7 @@ else
 
 @code {
     private bool _loading = true;
+    private string? _error;
     private int _totalTenants;
     private int _activeTenants;
     private int _professionalTenants;
@@ -187,22 +192,31 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var tenants = await Db.Tenants
-            .IgnoreQueryFilters()
-            .Where(t => !t.IsSystem)
-            .ToListAsync();
+        try
+        {
+            var tenants = await Db.Tenants
+                .IgnoreQueryFilters()
+                .Where(t => !t.IsSystem)
+                .ToListAsync();
 
-        _totalTenants        = tenants.Count;
-        _activeTenants       = tenants.Count(t => t.IsActive);
-        _professionalTenants = tenants.Count(t => t.Plan == TenantPlan.Professional);
-        _starterTenants      = tenants.Count(t => t.Plan == TenantPlan.Starter);
-        _recentTenants       = tenants.OrderByDescending(t => t.CreatedAt).Take(5).ToList();
+            _totalTenants        = tenants.Count;
+            _activeTenants       = tenants.Count(t => t.IsActive);
+            _professionalTenants = tenants.Count(t => t.Plan == TenantPlan.Professional);
+            _starterTenants      = tenants.Count(t => t.Plan == TenantPlan.Starter);
+            _recentTenants       = tenants.OrderByDescending(t => t.CreatedAt).Take(5).ToList();
 
-        _totalUsers = await Db.Users
-            .IgnoreQueryFilters()
-            .Where(u => tenants.Select(t => t.Id).Contains(u.TenantId) && u.UserType == UserType.Staff)
-            .CountAsync();
-
-        _loading = false;
+            _totalUsers = await Db.Users
+                .IgnoreQueryFilters()
+                .Where(u => tenants.Select(t => t.Id).Contains(u.TenantId) && u.UserType == UserType.Staff)
+                .CountAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 }
