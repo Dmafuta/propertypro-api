@@ -39,6 +39,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 30m
           envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS,NEXTAUTH_SECRET,GH_PAT
           script: |
             set -e
@@ -60,27 +61,30 @@ jobs:
             fi
 
             # ── Write .env from CI secrets ────────────────────────────────────
+            # esc: replace $ with $$ so docker-compose doesn't interpolate values
+            esc() { printf '%s' "$1" | sed 's/\$/\$\$/g'; }
+
             echo ">>> Writing .env..."
             cd /root/propertypro-api/deploy
             {
-            echo "DB_PASSWORD=${DB_PASSWORD}"
-            echo "SMTP_HOST=${SMTP_HOST}"
-            echo "SMTP_PORT=${SMTP_PORT}"
-            echo "SMTP_USE_SSL=${SMTP_USE_SSL}"
-            echo "SMTP_USERNAME=${SMTP_USERNAME}"
-            echo "SMTP_PASSWORD=${SMTP_PASSWORD}"
-            echo "SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}"
-            echo "SMTP_FROM_NAME=${SMTP_FROM_NAME}"
-            echo "AT_USERNAME=${AT_USERNAME}"
-            echo "AT_API_KEY=${AT_API_KEY}"
-            echo "AT_SENDER_ID=${AT_SENDER_ID}"
-            echo "AT_SANDBOX=${AT_SANDBOX}"
-            echo "JWT_SECRET=${JWT_SECRET}"
-            echo "JWT_ISSUER=${JWT_ISSUER}"
-            echo "JWT_AUDIENCE=${JWT_AUDIENCE}"
-            echo "JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}"
-            echo "JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}"
-            echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}"
+            echo "DB_PASSWORD=$(esc "${DB_PASSWORD}")"
+            echo "SMTP_HOST=$(esc "${SMTP_HOST}")"
+            echo "SMTP_PORT=$(esc "${SMTP_PORT}")"
+            echo "SMTP_USE_SSL=$(esc "${SMTP_USE_SSL}")"
+            echo "SMTP_USERNAME=$(esc "${SMTP_USERNAME}")"
+            echo "SMTP_PASSWORD=$(esc "${SMTP_PASSWORD}")"
+            echo "SMTP_FROM_ADDRESS=$(esc "${SMTP_FROM_ADDRESS}")"
+            echo "SMTP_FROM_NAME=$(esc "${SMTP_FROM_NAME}")"
+            echo "AT_USERNAME=$(esc "${AT_USERNAME}")"
+            echo "AT_API_KEY=$(esc "${AT_API_KEY}")"
+            echo "AT_SENDER_ID=$(esc "${AT_SENDER_ID}")"
+            echo "AT_SANDBOX=$(esc "${AT_SANDBOX}")"
+            echo "JWT_SECRET=$(esc "${JWT_SECRET}")"
+            echo "JWT_ISSUER=$(esc "${JWT_ISSUER}")"
+            echo "JWT_AUDIENCE=$(esc "${JWT_AUDIENCE}")"
+            echo "JWT_ACCESS_TOKEN_MINUTES=$(esc "${JWT_ACCESS_TOKEN_MINUTES}")"
+            echo "JWT_REFRESH_TOKEN_DAYS=$(esc "${JWT_REFRESH_TOKEN_DAYS}")"
+            echo "NEXTAUTH_SECRET=$(esc "${NEXTAUTH_SECRET}")"
             } > .env
 
             # ── Rebuild and restart containers ────────────────────────────────

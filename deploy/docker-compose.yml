@@ -41,7 +41,7 @@ services:
 
   web:
     build:
-      context: /root/propertypro-web
+      context: /root/propertypro-web/facility-app-web
       dockerfile: Dockerfile
     restart: always
     depends_on:
