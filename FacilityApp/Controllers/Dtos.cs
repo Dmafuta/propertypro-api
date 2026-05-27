@@ -3,7 +3,9 @@ namespace FacilityApp.Controllers;
 // ── Auth ─────────────────────────────────────────────────────────────────────
 public record LoginRequest(string Slug, string Email, string Password);
 public record LoginResponse(string AccessToken, string RefreshToken, DateTime ExpiresAt, UserDto User);
-public record UserDto(string Id, string Name, string Email, string[] Roles, string TenantSlug, string TenantName, string UserType);
+public record UserDto(string Id, string FullName, string Email, string[] Roles,
+    string TenantId, string TenantSlug, string TenantName, string UserType,
+    string? PrimaryColour = null, string? LogoUrl = null);
 public record RefreshRequest(string RefreshToken);
 public record RefreshResponse(string AccessToken, DateTime ExpiresAt);
 public record LogoutRequest(string RefreshToken);
@@ -18,8 +20,52 @@ public record CreateTenantRequest(string Name, string Slug, string ContactEmail)
 public record UpdatePlanRequest(int Plan);
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-public record DashboardResponse(int TodayVisitors, int ActiveVisitors, int PendingParcels,
-    int OpenMaintenance, int TotalUnits, int OccupiedUnits);
+public record UpcomingVisitDto(Guid Id, string VisitorName, string Purpose, DateTime ScheduledAt, string? HostName);
+
+public record DashboardResponse(
+    int TodayVisits, int ActiveVisits, int PendingParcels,
+    int OpenMaintenance, int TotalUnits, int OccupiedUnits,
+    int OpenIncidents, int PendingUnitRequests, int ActiveVehicles,
+    List<UpcomingVisitDto> UpcomingVisits);
+
+// ── Resident API ──────────────────────────────────────────────────────────────
+public record ResidentVisitDto(
+    Guid Id, string VisitorName, string? VisitorPhone, string Purpose,
+    string Status, DateTime ScheduledAt, DateTime? CheckedInAt, DateTime? CheckedOutAt,
+    string? QrCode);
+
+public record ResidentUpcomingVisitDto(Guid Id, string VisitorName, string Purpose, DateTime ScheduledAt);
+
+public record ResidentDashboardResponse(
+    int UpcomingVisits, int ActiveVisits, int TotalVisits,
+    int PendingParcels, int OpenMaintenance,
+    bool HasUnit, string? UnitNumber, bool PendingUnitRequest,
+    List<ResidentUpcomingVisitDto> UpcomingVisitsList);
+
+public record ResidentDocumentDto(Guid Id, string Title, string Category, string FileUrl, DateTime UploadedAt);
+
+public record ResidentAnnouncementDto(
+    Guid Id, string Title, string Body, string Category,
+    DateTime PublishedAt, DateTime? ExpiresAt);
+
+public record ResidentUnitRequestDto(
+    Guid Id, Guid UnitId, string UnitNumber, string Status,
+    string? Note, string? ReviewNote, DateTime RequestedAt, DateTime? ReviewedAt);
+
+public record SubmitUnitRequestRequest(Guid UnitId, string? Note);
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public record ResidentProfileDto(string Id, string FullName, string Email, string? PhoneNumber, string? UnitNumber);
+public record UpdateResidentProfileRequest(string? FullName, string? PhoneNumber);
+
+public record ResidentPreRegisterRequest(
+    string VisitorName, string VisitorPhone, string? VisitorEmail, string Purpose, DateTime ScheduledAt);
+
+public record ResidentVehicleInput(string LicensePlate, string? Make, string? Model, string? Colour);
+
+public record ResidentVehicleDto(
+    Guid Id, string LicensePlate, string? Make, string? Model, string? Colour,
+    string? TagNumber, string? TagStatus);
 
 // ── Visitors / Visits ─────────────────────────────────────────────────────────
 public record WalkInRequest(
