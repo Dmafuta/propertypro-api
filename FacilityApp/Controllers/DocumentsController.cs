@@ -48,7 +48,17 @@ public class DocumentsController : ControllerBase
             .Where(d => d.IsActive)
             .OrderByDescending(d => d.UploadedAt)
             .ToListAsync();
-        return Ok(items);
+
+        var baseUrl  = $"{Request.Scheme}://{Request.Host}";
+        var slug     = _tenantCtx.TenantSlug;
+        var dtos     = items.Select(d => new ResidentDocumentDto(
+            d.Id,
+            d.Title,
+            d.Category.ToString(),
+            $"{baseUrl}/documents/{slug}/{d.StoredFileName}",
+            d.UploadedAt
+        ));
+        return Ok(dtos);
     }
 
     // POST /api/documents  (multipart form upload)

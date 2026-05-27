@@ -97,7 +97,7 @@ public class AuthController : ControllerBase
         return Ok(new LoginResponse(
             accessToken, refreshToken, expiresAt,
             new UserDto(user.Id, user.FullName, user.Email ?? "", roles.ToArray(),
-                "platform", "Platform", user.UserType.ToString())));
+                Guid.Empty.ToString(), "platform", "Platform", user.UserType.ToString())));
     }
 
     // ── Refresh Token ───────────────────────────────────────────────────────
@@ -194,7 +194,8 @@ public class AuthController : ControllerBase
         return new LoginResponse(
             accessToken, refreshToken, expiresAt,
             new UserDto(user.Id, user.FullName, user.Email ?? "", roles.ToArray(),
-                tenant.Slug, tenant.Name, user.UserType.ToString()));
+                tenant.Id.ToString(), tenant.Slug, tenant.Name, user.UserType.ToString(),
+                tenant.PrimaryColour, tenant.LogoUrl));
     }
 }
 
