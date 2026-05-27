@@ -1,12 +1,16 @@
+using System.Security.Claims;
+using System.Text;
 using FacilityApp.Components;
 using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using FacilityApp.Hubs;
 using FacilityApp.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
 namespace FacilityApp
@@ -289,6 +293,33 @@ namespace FacilityApp
             builder.Services.AddScoped<GateContext>();
             builder.Services.AddScoped<IEntranceService, EntranceService>();
 
+            // Controllers
+            builder.Services.AddControllers();
+
+            // JWT Authentication (in addition to existing cookie auth for Blazor)
+            var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
+            builder.Services.AddSingleton(jwtSettings);
+            builder.Services.AddScoped<IJwtService, JwtService>();
+
+            builder.Services.AddAuthentication()
+                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer           = true,
+                        ValidateAudience         = true,
+                        ValidateLifetime         = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer              = jwtSettings.Issuer,
+                        ValidAudience            = jwtSettings.Audience,
+                        IssuerSigningKey         = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(jwtSettings.Secret.Length > 0
+                                ? jwtSettings.Secret
+                                : "placeholder-dev-secret-change-in-production")),
+                        ClockSkew                = TimeSpan.Zero
+                    };
+                });
+
             // Email
             var smtp = builder.Configuration.GetSection("Smtp").Get<SmtpSettings>() ?? new SmtpSettings();
             builder.Services.AddSingleton(smtp);
@@ -405,7 +436,28 @@ namespace FacilityApp
             app.UseCors("BlazorHub"); // must be before UseAuthentication for SignalR WebSocket
             app.UseMiddleware<FacilityApp.Middleware.TenantDomainMiddleware>();
             app.UseAuthentication();
+
+            // Resolve TenantContext from JWT claims for API requests
+            app.Use(async (ctx, next) =>
+            {
+                if (ctx.Request.Path.StartsWithSegments("/api") &&
+                    ctx.User.Identity?.IsAuthenticated == true)
+                {
+                    var tenantCtx = ctx.RequestServices.GetRequiredService<TenantContext>();
+                    if (!tenantCtx.IsResolved)
+                    {
+                        var tenantIdClaim   = ctx.User.FindFirstValue("tenant_id");
+                        var tenantSlugClaim = ctx.User.FindFirstValue("tenant_slug");
+                        var tenantNameClaim = ctx.User.FindFirstValue("tenant_name");
+                        if (Guid.TryParse(tenantIdClaim, out var tenantId))
+                            tenantCtx.SetFromJwt(tenantId, tenantSlugClaim ?? "", tenantNameClaim ?? "");
+                    }
+                }
+                await next();
+            });
+
             app.UseAuthorization();
+            app.MapControllers();
             app.UseAntiforgery();
 
             // Staff logout

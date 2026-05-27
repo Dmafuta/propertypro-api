@@ -117,6 +117,76 @@ public class EmailService : IEmailService
         return SendAsync(to, $"Your visitor {visitorName} has arrived", html);
     }
 
+    public Task SendParcelArrivedAsync(string to, string recipientName, string description, string tenantName)
+    {
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+              <h2 style="color:#1b6ec2;">Parcel Arrived</h2>
+              <p>Hi {HtmlEncode(recipientName)},</p>
+              <p>A parcel has arrived for you at <strong>{HtmlEncode(tenantName)}</strong>.</p>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;width:130px;">Description</td>
+                    <td style="padding:8px;border-bottom:1px solid #eee;">{HtmlEncode(description)}</td></tr>
+              </table>
+              <p>Please collect it from reception or the management office at your earliest convenience.</p>
+              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+              <p style="color:#999;font-size:12px;">{HtmlEncode(tenantName)} — Powered by FacilityApp</p>
+            </div>
+            """;
+        return SendAsync(to, $"Parcel arrived for you — {description}", html);
+    }
+
+    public Task SendMaintenanceUpdateAsync(string to, string residentName, string title,
+        string status, string? staffNote, string tenantName)
+    {
+        var noteRow = string.IsNullOrWhiteSpace(staffNote) ? "" : $"""
+            <tr><td style="padding:8px;color:#666;">Staff note</td>
+                <td style="padding:8px;">{HtmlEncode(staffNote)}</td></tr>
+            """;
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+              <h2 style="color:#1b6ec2;">Maintenance Request Update</h2>
+              <p>Hi {HtmlEncode(residentName)},</p>
+              <p>Your maintenance request has been updated at <strong>{HtmlEncode(tenantName)}</strong>.</p>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;width:130px;">Request</td>
+                    <td style="padding:8px;border-bottom:1px solid #eee;font-weight:bold;">{HtmlEncode(title)}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">New status</td>
+                    <td style="padding:8px;border-bottom:1px solid #eee;">{HtmlEncode(status)}</td></tr>
+                {noteRow}
+              </table>
+              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+              <p style="color:#999;font-size:12px;">{HtmlEncode(tenantName)} — Powered by FacilityApp</p>
+            </div>
+            """;
+        return SendAsync(to, $"Maintenance update: {title}", html);
+    }
+
+    public Task SendUnitRequestResultAsync(string to, string residentName, string unitNumber,
+        bool approved, string? reviewNote, string tenantName)
+    {
+        var color   = approved ? "#198754" : "#dc3545";
+        var heading = approved ? "Unit Request Approved" : "Unit Request Not Approved";
+        var body    = approved
+            ? $"Your request for unit <strong>{HtmlEncode(unitNumber)}</strong> has been <strong style=\"color:{color}\">approved</strong>. You are now assigned to this unit."
+            : $"Your request for unit <strong>{HtmlEncode(unitNumber)}</strong> was not approved at this time.";
+        var noteRow = string.IsNullOrWhiteSpace(reviewNote) ? "" : $"""
+            <p style="color:#555;margin-top:12px;"><strong>Reason:</strong> {HtmlEncode(reviewNote)}</p>
+            """;
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+              <h2 style="color:{color};">{heading}</h2>
+              <p>Hi {HtmlEncode(residentName)},</p>
+              <p>{body}</p>
+              {noteRow}
+              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+              <p style="color:#999;font-size:12px;">{HtmlEncode(tenantName)} — Powered by FacilityApp</p>
+            </div>
+            """;
+        var subject = approved ? $"Unit {unitNumber} approved" : $"Unit request update — {unitNumber}";
+        return SendAsync(to, subject, html);
+    }
+
     private static string HtmlEncode(string s) =>
         System.Net.WebUtility.HtmlEncode(s);
 }

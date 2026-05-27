@@ -18,6 +18,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS,ALLOWED_ORIGINS
           script: |
             set -e
 
@@ -26,6 +27,27 @@ jobs:
             echo ">>> Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
+
+            echo ">>> Writing .env from CI secrets..."
+            cat > deploy/.env <<EOF
+            DB_PASSWORD=${DB_PASSWORD}
+            SMTP_HOST=${SMTP_HOST}
+            SMTP_PORT=${SMTP_PORT}
+            SMTP_USE_SSL=${SMTP_USE_SSL}
+            SMTP_USERNAME=${SMTP_USERNAME}
+            SMTP_PASSWORD=${SMTP_PASSWORD}
+            SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}
+            SMTP_FROM_NAME=${SMTP_FROM_NAME}
+            AT_USERNAME=${AT_USERNAME}
+            AT_API_KEY=${AT_API_KEY}
+            AT_SENDER_ID=${AT_SENDER_ID}
+            AT_SANDBOX=${AT_SANDBOX}
+            JWT_SECRET=${JWT_SECRET}
+            JWT_ISSUER=${JWT_ISSUER}
+            JWT_AUDIENCE=${JWT_AUDIENCE}
+            JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}
+            JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}
+            EOF
 
             echo ">>> Rebuilding and restarting containers..."
             cd deploy

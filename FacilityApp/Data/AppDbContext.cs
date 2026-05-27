@@ -27,7 +27,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<VehicleTag> VehicleTags { get; set; }
     public DbSet<ParkingRecord> ParkingRecords { get; set; }
-    public DbSet<Parcel> Parcels { get; set; }
+    public DbSet<Parcel>       Parcels       { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -63,6 +64,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<VehicleTag>().ToTable("vehicle_tags");
         builder.Entity<ParkingRecord>().ToTable("parking_records");
         builder.Entity<Parcel>().ToTable("parcels");
+        builder.Entity<RefreshToken>().ToTable("refresh_tokens");
 
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
 
@@ -246,5 +248,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(p => p.ReceivedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RefreshToken>()
+            .HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<RefreshToken>()
+            .HasIndex(r => r.Token)
+            .IsUnique();
+        // No global query filter — refresh tokens are looked up by token value only
     }
 }

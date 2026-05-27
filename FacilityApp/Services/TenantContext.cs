@@ -27,6 +27,18 @@ public class TenantContext
     /// Clears all resolved state so the next component initialisation re-resolves
     /// from the URL. Called by MainLayout when the slug changes during soft navigation.
     /// </summary>
+    /// <summary>
+    /// Populates TenantContext from JWT claims for API requests.
+    /// Called by the JWT tenant resolution middleware after authentication.
+    /// </summary>
+    public void SetFromJwt(Guid tenantId, string tenantSlug, string tenantName)
+    {
+        TenantId   = tenantId;
+        TenantSlug = tenantSlug;
+        TenantName = tenantName;
+        IsResolved = true;
+    }
+
     public void Reset()
     {
         TenantId       = Guid.Empty;

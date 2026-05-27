@@ -8,13 +8,15 @@ public class ParcelService : IParcelService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly TenantContext _tenantCtx;
-    private readonly ISmsService _sms;
+    private readonly ISmsService   _sms;
+    private readonly IEmailService _email;
 
-    public ParcelService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx, ISmsService sms)
+    public ParcelService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx, ISmsService sms, IEmailService email)
     {
         _factory   = factory;
         _tenantCtx = tenantCtx;
         _sms       = sms;
+        _email     = email;
     }
 
     public async Task<List<Parcel>> GetAllAsync(ParcelStatus? status = null)
@@ -69,6 +71,8 @@ public class ParcelService : IParcelService
             {
                 if (!string.IsNullOrWhiteSpace(uu.User.PhoneNumber))
                     _ = _sms.SendParcelArrivedAsync(uu.User.PhoneNumber, recipientName, description, _tenantCtx.TenantName);
+                if (!string.IsNullOrWhiteSpace(uu.User.Email))
+                    _ = _email.SendParcelArrivedAsync(uu.User.Email, recipientName, description, _tenantCtx.TenantName);
             }
         }
 

@@ -46,6 +46,22 @@ public class TenantService : ITenantService
         return await reader.ReadAsync() ? MapTenant(reader) : null;
     }
 
+    public async Task<Tenant?> ResolveByIdAsync(Guid id)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd  = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT "Id","Name","Slug","CustomDomain","IsActive","LogoUrl","PrimaryColour",
+                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem"
+            FROM tenants
+            WHERE "Id" = @id
+            LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("id", id);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? MapTenant(reader) : null;
+    }
+
     private static Tenant MapTenant(NpgsqlDataReader r) => new()
     {
         Id            = r.GetGuid(0),

@@ -8,11 +8,16 @@ public class MaintenanceService : IMaintenanceService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly TenantContext _tenantCtx;
+    private readonly IEmailService _email;
+    private readonly ISmsService   _sms;
 
-    public MaintenanceService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx)
+    public MaintenanceService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx,
+        IEmailService email, ISmsService sms)
     {
         _factory   = factory;
         _tenantCtx = tenantCtx;
+        _email     = email;
+        _sms       = sms;
     }
 
     public async Task<List<MaintenanceRequest>> GetForResidentAsync(string residentId)
@@ -68,7 +73,9 @@ public class MaintenanceService : IMaintenanceService
     public async Task UpdateStatusAsync(Guid id, MaintenanceStatus status, string? staffNote)
     {
         await using var db = await _factory.CreateDbContextAsync();
-        var request = await db.MaintenanceRequests.FindAsync(id)
+        var request = await db.MaintenanceRequests
+            .Include(m => m.Resident)
+            .FirstOrDefaultAsync(m => m.Id == id)
             ?? throw new InvalidOperationException("Request not found.");
 
         request.Status    = status;
@@ -81,5 +88,18 @@ public class MaintenanceService : IMaintenanceService
             request.ResolvedAt ??= DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+
+        // Notify the resident
+        var resident    = request.Resident;
+        var statusLabel = status.ToString();
+        var note        = request.StaffNote;
+
+        if (!string.IsNullOrWhiteSpace(resident.Email))
+            _ = _email.SendMaintenanceUpdateAsync(resident.Email, resident.FullName,
+                request.Title, statusLabel, note, _tenantCtx.TenantName);
+
+        if (!string.IsNullOrWhiteSpace(resident.PhoneNumber))
+            _ = _sms.SendMaintenanceUpdateAsync(resident.PhoneNumber, resident.FullName,
+                request.Title, statusLabel, _tenantCtx.TenantName);
     }
 }

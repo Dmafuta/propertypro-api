@@ -92,4 +92,18 @@ public class SmsService : ISmsService
         var msg = $"{tenantName}: Hi {recipientName}, a parcel has arrived for you — {description}. Please collect it from reception.";
         return SendAsync(to, msg);
     }
+
+    public Task SendMaintenanceUpdateAsync(string to, string residentName, string title, string status, string tenantName)
+    {
+        var msg = $"{tenantName}: Hi {residentName}, your maintenance request \"{title}\" has been updated to {status}.";
+        return SendAsync(to, msg);
+    }
+
+    public Task SendUnitRequestResultAsync(string to, string residentName, string unitNumber, bool approved, string tenantName)
+    {
+        var msg = approved
+            ? $"{tenantName}: Hi {residentName}, your unit request for {unitNumber} has been approved. Welcome home!"
+            : $"{tenantName}: Hi {residentName}, your unit request for {unitNumber} was not approved. Please contact management for details.";
+        return SendAsync(to, msg);
+    }
 }

@@ -19,7 +19,16 @@ services:
       Smtp__UserName: "${SMTP_USERNAME}"
       Smtp__Password: "${SMTP_PASSWORD}"
       Smtp__FromAddress: "${SMTP_FROM_ADDRESS}"
-      Smtp__FromName: "${SMTP_FROM_NAME:-FacilityApp}"
+      Smtp__FromName: "${SMTP_FROM_NAME:-PropertyPro}"
+      AfricasTalking__Username: "${AT_USERNAME}"
+      AfricasTalking__ApiKey: "${AT_API_KEY}"
+      AfricasTalking__SenderId: "${AT_SENDER_ID}"
+      AfricasTalking__Sandbox: "${AT_SANDBOX:-false}"
+      Jwt__Secret: "${JWT_SECRET}"
+      Jwt__Issuer: "${JWT_ISSUER:-FacilityApp}"
+      Jwt__Audience: "${JWT_AUDIENCE:-FacilityApp}"
+      Jwt__AccessTokenMinutes: "${JWT_ACCESS_TOKEN_MINUTES:-60}"
+      Jwt__RefreshTokenDays: "${JWT_REFRESH_TOKEN_DAYS:-30}"
     expose:
       - "8080"
     networks:
