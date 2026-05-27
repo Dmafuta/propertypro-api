@@ -23,7 +23,7 @@ jobs:
           script: |
             set -e
 
-            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            cd /root/propertypro-api
 
             echo ">>> Pulling latest code..."
             git fetch origin main
