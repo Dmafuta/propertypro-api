@@ -7,14 +7,19 @@ namespace FacilityApp.Services;
 public class UnitRequestService : IUnitRequestService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
-    private readonly IUnitService _unitSvc;
+    private readonly IUnitService  _unitSvc;
     private readonly TenantContext _tenantCtx;
+    private readonly IEmailService _email;
+    private readonly ISmsService   _sms;
 
-    public UnitRequestService(IDbContextFactory<AppDbContext> factory, IUnitService unitSvc, TenantContext tenantCtx)
+    public UnitRequestService(IDbContextFactory<AppDbContext> factory, IUnitService unitSvc,
+        TenantContext tenantCtx, IEmailService email, ISmsService sms)
     {
         _factory   = factory;
         _unitSvc   = unitSvc;
         _tenantCtx = tenantCtx;
+        _email     = email;
+        _sms       = sms;
     }
 
     public async Task<UnitRequest?> GetForResidentAsync(string residentId)
@@ -71,7 +76,10 @@ public class UnitRequestService : IUnitRequestService
     public async Task ApproveAsync(Guid requestId, string reviewerId)
     {
         await using var db = await _factory.CreateDbContextAsync();
-        var request = await db.UnitRequests.FindAsync(requestId)
+        var request = await db.UnitRequests
+            .Include(r => r.Resident)
+            .Include(r => r.Unit)
+            .FirstOrDefaultAsync(r => r.Id == requestId)
             ?? throw new InvalidOperationException("Request not found.");
 
         if (request.Status != UnitRequestStatus.Pending)
@@ -85,12 +93,26 @@ public class UnitRequestService : IUnitRequestService
         request.ReviewedAt   = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+
+        var resident   = request.Resident;
+        var unitNumber = request.Unit.UnitNumber;
+
+        if (!string.IsNullOrWhiteSpace(resident.Email))
+            _ = _email.SendUnitRequestResultAsync(resident.Email, resident.FullName,
+                unitNumber, approved: true, reviewNote: null, _tenantCtx.TenantName);
+
+        if (!string.IsNullOrWhiteSpace(resident.PhoneNumber))
+            _ = _sms.SendUnitRequestResultAsync(resident.PhoneNumber, resident.FullName,
+                unitNumber, approved: true, _tenantCtx.TenantName);
     }
 
     public async Task RejectAsync(Guid requestId, string reviewerId, string? reviewNote)
     {
         await using var db = await _factory.CreateDbContextAsync();
-        var request = await db.UnitRequests.FindAsync(requestId)
+        var request = await db.UnitRequests
+            .Include(r => r.Resident)
+            .Include(r => r.Unit)
+            .FirstOrDefaultAsync(r => r.Id == requestId)
             ?? throw new InvalidOperationException("Request not found.");
 
         if (request.Status != UnitRequestStatus.Pending)
@@ -102,5 +124,16 @@ public class UnitRequestService : IUnitRequestService
         request.ReviewedAt   = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+
+        var resident   = request.Resident;
+        var unitNumber = request.Unit.UnitNumber;
+
+        if (!string.IsNullOrWhiteSpace(resident.Email))
+            _ = _email.SendUnitRequestResultAsync(resident.Email, resident.FullName,
+                unitNumber, approved: false, request.ReviewNote, _tenantCtx.TenantName);
+
+        if (!string.IsNullOrWhiteSpace(resident.PhoneNumber))
+            _ = _sms.SendUnitRequestResultAsync(resident.PhoneNumber, resident.FullName,
+                unitNumber, approved: false, _tenantCtx.TenantName);
     }
 }
