@@ -47,16 +47,17 @@ jobs:
             # ── Pull API repo ─────────────────────────────────────────────────
             echo ">>> Pulling API repo..."
             cd /root/propertypro-api
-            git fetch origin main
-            git reset --hard origin/main
+            git fetch --force origin main
+            git reset --hard FETCH_HEAD
 
             # ── Pull / clone web (Next.js) repo ───────────────────────────────
             echo ">>> Pulling web repo..."
-            if [ -d /root/propertypro-web ]; then
+            if [ -d /root/propertypro-web/.git ]; then
               cd /root/propertypro-web
-              git fetch origin main
-              git reset --hard origin/main
+              git fetch --force origin main
+              git reset --hard FETCH_HEAD
             else
+              rm -rf /root/propertypro-web
               git clone https://${GH_PAT}@github.com/Dmafuta/propertypro-web.git /root/propertypro-web
             fi
 
