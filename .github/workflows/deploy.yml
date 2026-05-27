@@ -14,12 +14,30 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USE_SSL: ${{ secrets.SMTP_USE_SSL }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM_ADDRESS: ${{ secrets.SMTP_FROM_ADDRESS }}
+          SMTP_FROM_NAME: ${{ secrets.SMTP_FROM_NAME }}
+          AT_USERNAME: ${{ secrets.AT_USERNAME }}
+          AT_API_KEY: ${{ secrets.AT_API_KEY }}
+          AT_SENDER_ID: ${{ secrets.AT_SENDER_ID }}
+          AT_SANDBOX: ${{ secrets.AT_SANDBOX }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+          JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
+          JWT_ACCESS_TOKEN_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
+          JWT_REFRESH_TOKEN_DAYS: ${{ secrets.JWT_REFRESH_TOKEN_DAYS }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS,ALLOWED_ORIGINS
+          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS
           script: |
             set -e
 
