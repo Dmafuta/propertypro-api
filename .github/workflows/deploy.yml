@@ -23,32 +23,32 @@ jobs:
           script: |
             set -e
 
-            cd ${{ secrets.VPS_DEPLOY_PATH }}
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
 
             echo ">>> Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
 
             echo ">>> Writing .env from CI secrets..."
-            cat > deploy/.env <<EOF
-            DB_PASSWORD=${DB_PASSWORD}
-            SMTP_HOST=${SMTP_HOST}
-            SMTP_PORT=${SMTP_PORT}
-            SMTP_USE_SSL=${SMTP_USE_SSL}
-            SMTP_USERNAME=${SMTP_USERNAME}
-            SMTP_PASSWORD=${SMTP_PASSWORD}
-            SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}
-            SMTP_FROM_NAME=${SMTP_FROM_NAME}
-            AT_USERNAME=${AT_USERNAME}
-            AT_API_KEY=${AT_API_KEY}
-            AT_SENDER_ID=${AT_SENDER_ID}
-            AT_SANDBOX=${AT_SANDBOX}
-            JWT_SECRET=${JWT_SECRET}
-            JWT_ISSUER=${JWT_ISSUER}
-            JWT_AUDIENCE=${JWT_AUDIENCE}
-            JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}
-            JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}
-            EOF
+            {
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "SMTP_HOST=${SMTP_HOST}"
+            echo "SMTP_PORT=${SMTP_PORT}"
+            echo "SMTP_USE_SSL=${SMTP_USE_SSL}"
+            echo "SMTP_USERNAME=${SMTP_USERNAME}"
+            echo "SMTP_PASSWORD=${SMTP_PASSWORD}"
+            echo "SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}"
+            echo "SMTP_FROM_NAME=${SMTP_FROM_NAME}"
+            echo "AT_USERNAME=${AT_USERNAME}"
+            echo "AT_API_KEY=${AT_API_KEY}"
+            echo "AT_SENDER_ID=${AT_SENDER_ID}"
+            echo "AT_SANDBOX=${AT_SANDBOX}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "JWT_ISSUER=${JWT_ISSUER}"
+            echo "JWT_AUDIENCE=${JWT_AUDIENCE}"
+            echo "JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}"
+            echo "JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}"
+            } > deploy/.env
 
             echo ">>> Rebuilding and restarting containers..."
             cd deploy
