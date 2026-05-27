@@ -103,7 +103,19 @@ jobs:
               sleep 3
             done
 
+            echo ">>> Container status:"
+            docker compose ps
+
+            echo ">>> App logs (last 20 lines):"
+            docker compose logs --tail=20 app
+
+            echo ">>> Web logs (last 20 lines):"
+            docker compose logs --tail=20 web
+
             echo ">>> Checking /health endpoint..."
             curl -sf http://localhost:8080/health || echo "Health check returned non-200 (check logs)"
+
+            echo ">>> Checking web on port 3000..."
+            curl -sf http://localhost:3000/ -o /dev/null -w "web HTTP status: %{http_code}\n" || echo "web container not reachable on 3000"
 
             echo ">>> Deploy complete."
