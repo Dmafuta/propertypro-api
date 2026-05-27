@@ -32,22 +32,36 @@ jobs:
           JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
           JWT_ACCESS_TOKEN_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
           JWT_REFRESH_TOKEN_DAYS: ${{ secrets.JWT_REFRESH_TOKEN_DAYS }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS
+          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS,NEXTAUTH_SECRET,GITHUB_PAT
           script: |
             set -e
 
+            # ── Pull API repo ─────────────────────────────────────────────────
+            echo ">>> Pulling API repo..."
             cd /root/propertypro-api
-
-            echo ">>> Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
 
-            echo ">>> Writing .env from CI secrets..."
+            # ── Pull / clone web (Next.js) repo ───────────────────────────────
+            echo ">>> Pulling web repo..."
+            if [ -d /root/propertypro-web ]; then
+              cd /root/propertypro-web
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone https://${GITHUB_PAT}@github.com/Dmafuta/propertypro-web.git /root/propertypro-web
+            fi
+
+            # ── Write .env from CI secrets ────────────────────────────────────
+            echo ">>> Writing .env..."
+            cd /root/propertypro-api/deploy
             {
             echo "DB_PASSWORD=${DB_PASSWORD}"
             echo "SMTP_HOST=${SMTP_HOST}"
@@ -66,12 +80,14 @@ jobs:
             echo "JWT_AUDIENCE=${JWT_AUDIENCE}"
             echo "JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}"
             echo "JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}"
-            } > deploy/.env
+            echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}"
+            } > .env
 
-            echo ">>> Rebuilding and restarting containers..."
-            cd deploy
+            # ── Rebuild and restart containers ────────────────────────────────
+            echo ">>> Rebuilding containers..."
             docker compose up -d --build --remove-orphans
 
+            # ── Wait for app to be healthy ────────────────────────────────────
             echo ">>> Waiting for app to be healthy..."
             for i in $(seq 1 30); do
               STATUS=$(docker compose ps --format json app 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('Health','unknown'))" 2>/dev/null || echo "unknown")

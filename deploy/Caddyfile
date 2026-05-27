@@ -1,51 +1,44 @@
-# ── FacilityApp Caddyfile ──────────────────────────────────────────────────
-#
-# Caddy automatically provisions and renews Let's Encrypt SSL certificates
-# for every domain listed here. No manual cert management needed.
-#
-# Usage:
-#   1. Point your domain(s) DNS A record → your server IP
-#   2. Update the domain names below
-#   3. Run: docker compose up -d
-#
-# ──────────────────────────────────────────────────────────────────────────
-
-# Add one block per domain this server should serve.
-# Caddy automatically provisions Let's Encrypt SSL for each.
-# Replace / add domains below as needed.
-
 greatwallgardens.estate {
-    reverse_proxy app:8080 {
-        # Preserve the original public hostname so ASP.NET Core sees
-        # Host: greatwallgardens.estate — required for SignalR WebSocket
-        # origin validation (Origin header must match Host header or the
-        # /_blazor circuit is rejected with 403 and all buttons go dead).
-        header_up Host {host}
 
-        # Pass the protocol so ASP.NET Core sets Request.IsHttps = true,
-        # giving auth cookies the Secure flag in production.
-        header_up X-Forwarded-Proto {scheme}
-
-        # X-Forwarded-For: Caddy appends the real client IP automatically —
-        # no header_up needed. An explicit set would overwrite the chain and
-        # lose the real IP if a CDN sits in front of Caddy.
-
-        # Flush immediately so Blazor Server SignalR frames and long-poll
-        # responses are not held in Caddy's buffer.
-        flush_interval -1
-
-        # Strip the Server header from the upstream response directly.
-        header_down -Server
+    # ── ASP.NET Core REST API ─────────────────────────────────────────────────
+    # Requests to /backend/* are stripped of the prefix and forwarded to
+    # the app container at /api/* (e.g. /backend/api/auth/login → /api/auth/login).
+    handle_path /backend/* {
+        reverse_proxy app:8080 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_down -Server
+        }
     }
+
+    # Static files served by ASP.NET Core (visitor photos, documents)
+    handle /uploads/* {
+        reverse_proxy app:8080
+    }
+    handle /documents/* {
+        reverse_proxy app:8080
+    }
+
+    # Health check endpoint
+    handle /health {
+        reverse_proxy app:8080
+    }
+
+    # Dev seed endpoints (only active in Development environment)
+    handle /dev/* {
+        reverse_proxy app:8080
+    }
+
+    # ── Next.js frontend (catch-all) ──────────────────────────────────────────
+    handle {
+        reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_down -Server
+        }
+    }
+
     encode gzip
     header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-    # Belt-and-suspenders: also strip at the site level in case Caddy
-    # re-adds its own Server header after the reverse_proxy strips Kestrel's.
     header -Server
 }
-
-# sunsetapartments.com {
-#     reverse_proxy app:8080
-#     encode gzip
-#     header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-# }
