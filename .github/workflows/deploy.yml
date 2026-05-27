@@ -33,13 +33,13 @@ jobs:
           JWT_ACCESS_TOKEN_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
           JWT_REFRESH_TOKEN_DAYS: ${{ secrets.JWT_REFRESH_TOKEN_DAYS }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS,NEXTAUTH_SECRET,GITHUB_PAT
+          envs: DB_PASSWORD,SMTP_HOST,SMTP_PORT,SMTP_USE_SSL,SMTP_USERNAME,SMTP_PASSWORD,SMTP_FROM_ADDRESS,SMTP_FROM_NAME,AT_USERNAME,AT_API_KEY,AT_SENDER_ID,AT_SANDBOX,JWT_SECRET,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_TOKEN_MINUTES,JWT_REFRESH_TOKEN_DAYS,NEXTAUTH_SECRET,GH_PAT
           script: |
             set -e
 
@@ -56,7 +56,7 @@ jobs:
               git fetch origin main
               git reset --hard origin/main
             else
-              git clone https://${GITHUB_PAT}@github.com/Dmafuta/propertypro-web.git /root/propertypro-web
+              git clone https://${GH_PAT}@github.com/Dmafuta/propertypro-web.git /root/propertypro-web
             fi
 
             # ── Write .env from CI secrets ────────────────────────────────────
