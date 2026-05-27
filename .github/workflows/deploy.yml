@@ -89,8 +89,11 @@ jobs:
             } > .env
 
             # ── Rebuild and restart containers ────────────────────────────────
+            echo ">>> Stopping containers..."
+            docker compose stop 2>/dev/null || true
+            docker ps -aq --filter name=deploy- | xargs docker rm -f 2>/dev/null || true
+
             echo ">>> Rebuilding containers..."
-            docker compose down --remove-orphans 2>/dev/null || true
             docker compose up -d --build
 
             # ── Wait for app to be healthy ────────────────────────────────────
