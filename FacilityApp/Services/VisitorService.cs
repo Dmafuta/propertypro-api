@@ -1,7 +1,5 @@
 using FacilityApp.Data;
 using FacilityApp.Data.Models;
-using FacilityApp.Hubs;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace FacilityApp.Services;
@@ -13,19 +11,17 @@ public class VisitorService : IVisitorService
     private readonly IEmailService _email;
     private readonly ISmsService _sms;
     private readonly IAuditService _audit;
-    private readonly IHubContext<NotificationHub> _hub;
     private readonly IBlacklistService _blacklist;
 
     public VisitorService(AppDbContext context, TenantContext tenantCtx,
         IEmailService email, ISmsService sms, IAuditService audit,
-        IHubContext<NotificationHub> hub, IBlacklistService blacklist)
+        IBlacklistService blacklist)
     {
         _context   = context;
         _tenantCtx = tenantCtx;
         _email     = email;
         _sms       = sms;
         _audit     = audit;
-        _hub       = hub;
         _blacklist = blacklist;
     }
 
@@ -157,10 +153,6 @@ public class VisitorService : IVisitorService
         await _audit.LogAsync("WalkIn", "Visit", visit.Id.ToString(),
             $"{visitor.FullName} walked in{walkInGate} — purpose: {purpose}");
 
-        _ = _hub.Clients.Group(_tenantCtx.TenantSlug).SendAsync("VisitorCheckedIn",
-            visitor.FullName, purpose,
-            hostUserId is null ? "Unassigned" : (await _context.Users.FindAsync(hostUserId))?.FullName ?? "Unknown");
-
         // Notify host if they have an email or phone
         if (hostUserId is not null)
         {
@@ -231,12 +223,6 @@ public class VisitorService : IVisitorService
         var checkInGate = await EntranceNameAsync(entranceId);
         await _audit.LogAsync("CheckIn", "Visit", visitId.ToString(),
             $"{visit.Visitor.FullName} checked in{checkInGate}");
-
-        // Real-time push to all staff tabs in this tenant
-        _ = _hub.Clients.Group(_tenantCtx.TenantSlug).SendAsync("VisitorCheckedIn",
-            visit.Visitor.FullName,
-            visit.Purpose,
-            visit.Host?.FullName ?? "Unassigned");
 
         if (visit.Host?.Email is not null)
             _ = _email.SendCheckInAlertAsync(visit.Host.Email, visit.Host.FullName, visit.Visitor.FullName, visit.Purpose, _tenantCtx.TenantName);
