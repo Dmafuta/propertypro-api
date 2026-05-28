@@ -251,6 +251,7 @@ namespace FacilityApp
 
             await MigrateAsync(app);
             await SeedRolesAsync(app);
+            await SeedSuperAdminAsync(app);
 
             app.UseForwardedHeaders();
 
@@ -412,6 +413,50 @@ namespace FacilityApp
                 if (!await roleManager.RoleExistsAsync(role))
                     await roleManager.CreateAsync(new IdentityRole(role));
             }
+        }
+
+        private static async Task SeedSuperAdminAsync(WebApplication app)
+        {
+            var email    = Environment.GetEnvironmentVariable("SUPERADMIN_EMAIL");
+            var password = Environment.GetEnvironmentVariable("SUPERADMIN_PASSWORD");
+            var fullName = Environment.GetEnvironmentVariable("SUPERADMIN_FULLNAME") ?? "Platform SuperAdmin";
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)) return;
+
+            using var scope = app.Services.CreateScope();
+            var db          = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            var tenant = db.Tenants.IgnoreQueryFilters().FirstOrDefault(t => t.Slug == "platform");
+            if (tenant is null)
+            {
+                tenant = new Tenant
+                {
+                    Id        = Guid.NewGuid(),
+                    Name      = "Platform",
+                    Slug      = "platform",
+                    IsSystem  = true,
+                    IsActive  = true,
+                    Plan      = TenantPlan.Professional,
+                    CreatedAt = DateTime.UtcNow,
+                };
+                db.Tenants.Add(tenant);
+                await db.SaveChangesAsync();
+            }
+
+            var existing = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == email);
+            if (existing is not null) return;
+
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email    = email,
+                FullName = fullName,
+                TenantId = tenant.Id,
+                UserType = UserType.Staff,
+            };
+            var result = await userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+                await userManager.AddToRoleAsync(user, RoleSuperAdmin);
         }
     }
 }
