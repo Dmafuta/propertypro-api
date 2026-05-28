@@ -89,8 +89,14 @@ jobs:
             } > .env
 
             # ── Rebuild and restart containers ────────────────────────────────
-            echo ">>> Removing existing containers..."
+            echo ">>> Cleaning up all deploy project containers and networks..."
+            # Remove by compose label (handles any naming format)
+            docker ps -aq --filter label=com.docker.compose.project=deploy | xargs -r docker rm -f 2>/dev/null || true
+            # Also remove by name as fallback
             docker rm -f deploy-db-1 deploy-app-1 deploy-web-1 deploy-caddy-1 2>/dev/null || true
+            # Remove networks so compose starts fully fresh
+            docker network rm deploy_web deploy_internal 2>/dev/null || true
+            sleep 2
 
             echo ">>> Rebuilding containers..."
             docker compose up -d --build
