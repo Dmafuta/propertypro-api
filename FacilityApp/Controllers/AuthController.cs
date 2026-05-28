@@ -1,10 +1,12 @@
 using System.Security.Claims;
+using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using FacilityApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 
 namespace FacilityApp.Controllers;
 
@@ -17,19 +19,22 @@ public class AuthController : ControllerBase
     private readonly IJwtService                    _jwt;
     private readonly IEmailService                  _email;
     private readonly JwtSettings                    _jwtSettings;
+    private readonly AppDbContext                   _db;
 
     public AuthController(
         UserManager<ApplicationUser> users,
         ITenantService tenantSvc,
         IJwtService jwt,
         IEmailService email,
-        JwtSettings jwtSettings)
+        JwtSettings jwtSettings,
+        AppDbContext db)
     {
         _users       = users;
         _tenantSvc   = tenantSvc;
         _jwt         = jwt;
         _email       = email;
         _jwtSettings = jwtSettings;
+        _db          = db;
     }
 
     // ── Staff Login ─────────────────────────────────────────────────────────
@@ -78,7 +83,10 @@ public class AuthController : ControllerBase
     [HttpPost("superadmin/login")]
     public async Task<IActionResult> SuperAdminLogin([FromBody] SuperAdminLoginRequest req)
     {
-        var user = await _users.FindByEmailAsync(req.Email.Trim().ToLower());
+        // Must use IgnoreQueryFilters — the global TenantId filter blocks cross-tenant lookup
+        var normalised = req.Email.Trim().ToUpper();
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalised);
         if (user is null)
             return Unauthorized(new { error = "Invalid credentials." });
 
