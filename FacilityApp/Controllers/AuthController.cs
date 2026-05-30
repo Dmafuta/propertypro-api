@@ -107,19 +107,6 @@ public class AuthController : ControllerBase
         if (!ok)
             return Unauthorized(new { error = "Invalid credentials." });
 
-        // If phone is verified, require 2FA OTP before issuing tokens
-        if (user.PhoneNumberConfirmed && !string.IsNullOrEmpty(user.PhoneNumber))
-        {
-            var tempToken = Guid.NewGuid().ToString("N");
-            var code      = Random.Shared.Next(100_000, 999_999).ToString();
-            _cache.Set($"sa_2fa:{tempToken}", (user.Id, code), TimeSpan.FromMinutes(10));
-
-            var message = $"Your SuperAdmin verification code is {code}. It expires in 10 minutes.";
-            _ = _sms.SendAsync(user.PhoneNumber, message);
-
-            return Ok(new TwoFactorRequiredResponse(true, tempToken, MaskPhone(user.PhoneNumber)));
-        }
-
         var accessToken  = _jwt.GenerateAccessToken(user, Guid.Empty, "platform", "Platform", roles);
         var refreshToken = await _jwt.GenerateRefreshTokenAsync(user.Id);
         var expiresAt    = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes);
