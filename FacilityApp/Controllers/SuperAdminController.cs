@@ -179,6 +179,8 @@ public class SuperAdminController : ControllerBase
         var encoded = Uri.EscapeDataString(token);
         var setPasswordLink = $"{Request.Scheme}://{Request.Host}/{tenant.Slug}/reset-password?email={Uri.EscapeDataString(email)}&token={encoded}";
 
+        _logger.LogInformation("Admin invite link for {Email}: {Link}", email, setPasswordLink);
+
         _ = _email.SendAdminInviteAsync(email, user.FullName, tenant.Name, setPasswordLink)
             .ContinueWith(t => _logger.LogError(t.Exception, "Failed to send admin invite email to {Email}", email),
                 TaskContinuationOptions.OnlyOnFaulted);
