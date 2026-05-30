@@ -43,7 +43,7 @@ public class AccountController : ControllerBase
             await _account.UpdateProfileAsync(CurrentUserId, req.FirstName, req.MiddleName, req.LastName);
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
             return BadRequest(new { error = ex.Message });
         }
@@ -89,6 +89,10 @@ public class AccountController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = $"Upload failed: {ex.Message}" });
         }
     }
 }

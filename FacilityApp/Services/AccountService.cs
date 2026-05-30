@@ -1,28 +1,37 @@
 using FacilityApp.Controllers;
+using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace FacilityApp.Services;
 
 public class AccountService : IAccountService
 {
     private readonly UserManager<ApplicationUser> _users;
+    private readonly AppDbContext                 _db;
     private readonly IWebHostEnvironment          _env;
 
     private static readonly string[] AllowedMimeTypes =
         ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-    public AccountService(UserManager<ApplicationUser> users, IWebHostEnvironment env)
+    public AccountService(UserManager<ApplicationUser> users, AppDbContext db, IWebHostEnvironment env)
     {
         _users = users;
+        _db    = db;
         _env   = env;
     }
 
+    // Bypass the global TenantId query filter — account endpoints must work for all
+    // users including SuperAdmin (whose TenantId differs from the resolved tenant context).
+    private Task<ApplicationUser?> FindUserAsync(string userId) =>
+        _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId);
+
     public async Task<UserProfileDto?> GetProfileAsync(string userId)
     {
-        var user = await _users.FindByIdAsync(userId);
+        var user = await FindUserAsync(userId);
         if (user is null) return null;
         var roles = await _users.GetRolesAsync(user);
         return new UserProfileDto(
@@ -34,7 +43,7 @@ public class AccountService : IAccountService
 
     public async Task UpdateProfileAsync(string userId, string firstName, string? middleName, string lastName)
     {
-        var user = await _users.FindByIdAsync(userId)
+        var user = await FindUserAsync(userId)
             ?? throw new InvalidOperationException("User not found.");
 
         user.FirstName  = firstName.Trim();
@@ -46,7 +55,7 @@ public class AccountService : IAccountService
 
     public async Task<string?> UpdateUsernameAsync(string userId, string userName)
     {
-        var user = await _users.FindByIdAsync(userId);
+        var user = await FindUserAsync(userId);
         if (user is null) return "User not found.";
 
         var result = await _users.SetUserNameAsync(user, userName.Trim());
@@ -55,7 +64,7 @@ public class AccountService : IAccountService
 
     public async Task<string?> UpdateEmailAsync(string userId, string primaryEmail, string? secondaryEmail)
     {
-        var user = await _users.FindByIdAsync(userId);
+        var user = await FindUserAsync(userId);
         if (user is null) return "User not found.";
 
         var result = await _users.SetEmailAsync(user, primaryEmail.Trim().ToLower());
@@ -78,7 +87,7 @@ public class AccountService : IAccountService
         if (file.Length > 5 * 1024 * 1024)
             throw new InvalidOperationException("File must be under 5 MB.");
 
-        var user = await _users.FindByIdAsync(userId)
+        var user = await FindUserAsync(userId)
             ?? throw new InvalidOperationException("User not found.");
 
         var ext      = Path.GetExtension(file.FileName).ToLowerInvariant();

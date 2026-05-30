@@ -205,7 +205,7 @@ public class AuthController : ControllerBase
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> GetPhoneStatus()
     {
-        var user = await _users.FindByIdAsync(CurrentUserId);
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == CurrentUserId);
         if (user is null) return NotFound();
         return Ok(new PhoneStatusDto(user.PhoneNumber, user.PhoneNumberConfirmed, user.TwoFactorEnabled));
     }
@@ -214,7 +214,7 @@ public class AuthController : ControllerBase
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> SendPhoneVerification([FromBody] SendPhoneVerificationRequest req)
     {
-        var user = await _users.FindByIdAsync(CurrentUserId);
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == CurrentUserId);
         if (user is null) return NotFound();
 
         var code    = Random.Shared.Next(100_000, 999_999).ToString();
@@ -231,7 +231,7 @@ public class AuthController : ControllerBase
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> VerifyPhone([FromBody] VerifyPhoneRequest req)
     {
-        var user = await _users.FindByIdAsync(CurrentUserId);
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == CurrentUserId);
         if (user is null) return NotFound();
 
         var cacheKey = $"phone_otp:{user.Id}";
