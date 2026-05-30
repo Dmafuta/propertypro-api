@@ -13,6 +13,10 @@ public record ForgotPasswordRequest(string Slug, string Email);
 public record ResetPasswordRequest(string Slug, string Email, string Token, string NewPassword);
 
 // ── SuperAdmin ────────────────────────────────────────────────────────────────
+public record TwoFactorRequiredResponse(bool RequiresTwoFactor, string TempToken, string MaskedPhone);
+public record SuperAdminVerify2FaRequest(string TempToken, string Code);
+public record SuperAdminResend2FaRequest(string TempToken);
+
 public record TenantDto(Guid Id, string Name, string Slug, bool IsActive, int Plan,
     string? CustomDomain, string? ContactEmail, string? ContactPhone,
     string? Address, string? Website, string? PrimaryColour, string? LogoUrl, DateTime CreatedAt);

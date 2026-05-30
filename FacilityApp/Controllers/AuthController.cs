@@ -107,6 +107,19 @@ public class AuthController : ControllerBase
         if (!ok)
             return Unauthorized(new { error = "Invalid credentials." });
 
+        // If phone is verified, require 2FA OTP before issuing tokens
+        if (user.PhoneNumberConfirmed && !string.IsNullOrEmpty(user.PhoneNumber))
+        {
+            var tempToken = Guid.NewGuid().ToString("N");
+            var code      = Random.Shared.Next(100_000, 999_999).ToString();
+            _cache.Set($"sa_2fa:{tempToken}", (user.Id, code), TimeSpan.FromMinutes(10));
+
+            var message = $"Your SuperAdmin verification code is {code}. It expires in 10 minutes.";
+            _ = _sms.SendAsync(user.PhoneNumber, message);
+
+            return Ok(new TwoFactorRequiredResponse(true, tempToken, MaskPhone(user.PhoneNumber)));
+        }
+
         var accessToken  = _jwt.GenerateAccessToken(user, Guid.Empty, "platform", "Platform", roles);
         var refreshToken = await _jwt.GenerateRefreshTokenAsync(user.Id);
         var expiresAt    = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes);
@@ -115,6 +128,58 @@ public class AuthController : ControllerBase
             accessToken, refreshToken, expiresAt,
             new UserDto(user.Id, user.FullName, user.Email ?? "", roles.ToArray(),
                 Guid.Empty.ToString(), "platform", "Platform", user.UserType.ToString())));
+    }
+
+    // ── SuperAdmin 2FA Verify ────────────────────────────────────────────────
+
+    [HttpPost("superadmin/verify-2fa")]
+    public async Task<IActionResult> SuperAdminVerify2Fa([FromBody] SuperAdminVerify2FaRequest req)
+    {
+        var cacheKey = $"sa_2fa:{req.TempToken}";
+        if (!_cache.TryGetValue(cacheKey, out (string userId, string code) stored))
+            return Unauthorized(new { error = "Code expired or not found. Please log in again." });
+
+        if (stored.code != req.Code)
+            return BadRequest(new { error = "Invalid code. Please try again." });
+
+        _cache.Remove(cacheKey);
+
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == stored.userId);
+        if (user is null)
+            return Unauthorized(new { error = "User not found." });
+
+        var roles        = await _users.GetRolesAsync(user);
+        var accessToken  = _jwt.GenerateAccessToken(user, Guid.Empty, "platform", "Platform", roles);
+        var refreshToken = await _jwt.GenerateRefreshTokenAsync(user.Id);
+        var expiresAt    = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes);
+
+        return Ok(new LoginResponse(
+            accessToken, refreshToken, expiresAt,
+            new UserDto(user.Id, user.FullName, user.Email ?? "", roles.ToArray(),
+                Guid.Empty.ToString(), "platform", "Platform", user.UserType.ToString())));
+    }
+
+    // ── SuperAdmin 2FA Resend ────────────────────────────────────────────────
+
+    [HttpPost("superadmin/resend-2fa")]
+    public async Task<IActionResult> SuperAdminResend2Fa([FromBody] SuperAdminResend2FaRequest req)
+    {
+        var cacheKey = $"sa_2fa:{req.TempToken}";
+        if (!_cache.TryGetValue(cacheKey, out (string userId, string code) stored))
+            return Unauthorized(new { error = "Session expired. Please log in again." });
+
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == stored.userId);
+        if (user is null || string.IsNullOrEmpty(user.PhoneNumber))
+            return Unauthorized(new { error = "User not found." });
+
+        // Generate a fresh code and reset the 10-minute window
+        var newCode = Random.Shared.Next(100_000, 999_999).ToString();
+        _cache.Set(cacheKey, (stored.userId, newCode), TimeSpan.FromMinutes(10));
+
+        var message = $"Your SuperAdmin verification code is {newCode}. It expires in 10 minutes.";
+        _ = _sms.SendAsync(user.PhoneNumber, message);
+
+        return Ok(new SendPhoneVerificationResponse(MaskPhone(user.PhoneNumber)));
     }
 
     // ── Refresh Token ───────────────────────────────────────────────────────
