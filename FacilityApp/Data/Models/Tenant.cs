@@ -26,6 +26,13 @@ public class Tenant
 
     // Custom domain (e.g. greatwallgardens.estate) — enables slug-free URLs (Professional plan only)
     public string? CustomDomain { get; set; }
+
+    // SMS notifications
+    public bool SmsEnabled { get; set; } = true;
+    /// <summary>Tenant-specific Africa's Talking API key (Professional plan only). Null = use platform key.</summary>
+    public string? SmsApiKey { get; set; }
+    public string? SmsUsername { get; set; }
+    public string? SmsSenderId { get; set; }
 }
 
 public enum TenantPlan { Starter = 0, Professional = 1 }

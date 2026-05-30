@@ -48,4 +48,25 @@ public class SettingsService : ISettingsService
         _tenantCtx.LogoUrl       = tenant.LogoUrl;
         _tenantCtx.PrimaryColour = tenant.PrimaryColour;
     }
+
+    public async Task UpdateSmsAsync(bool enabled, string? apiKey, string? username, string? senderId)
+    {
+        var tenant = await _context.Tenants.FindAsync(_tenantCtx.TenantId)
+            ?? throw new InvalidOperationException("Tenant not found.");
+
+        // Custom API credentials are Professional-only
+        if (!string.IsNullOrWhiteSpace(apiKey) && tenant.Plan != Data.Models.TenantPlan.Professional)
+            throw new InvalidOperationException("Custom SMS credentials are a Professional plan feature. Please upgrade to enable them.");
+
+        tenant.SmsEnabled  = enabled;
+        tenant.SmsApiKey   = string.IsNullOrWhiteSpace(apiKey)   ? null : apiKey.Trim();
+        tenant.SmsUsername = string.IsNullOrWhiteSpace(username)  ? null : username.Trim();
+        tenant.SmsSenderId = string.IsNullOrWhiteSpace(senderId)  ? null : senderId.Trim();
+        await _context.SaveChangesAsync();
+
+        _tenantCtx.SmsEnabled  = tenant.SmsEnabled;
+        _tenantCtx.SmsApiKey   = tenant.SmsApiKey;
+        _tenantCtx.SmsUsername = tenant.SmsUsername;
+        _tenantCtx.SmsSenderId = tenant.SmsSenderId;
+    }
 }

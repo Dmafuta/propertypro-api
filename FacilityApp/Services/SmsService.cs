@@ -15,41 +15,62 @@ public class SmsService : ISmsService
     private const string LiveUrl    = "https://api.africastalking.com/version1/messaging";
     private const string SandboxUrl = "https://api.sandbox.africastalking.com/version1/messaging";
 
-    private readonly AfricasTalkingSettings _at;
+    private readonly AfricasTalkingSettings _platform;
+    private readonly TenantContext          _tenantCtx;
     private readonly IHttpClientFactory     _httpFactory;
     private readonly ILogger<SmsService>    _logger;
 
-    public SmsService(AfricasTalkingSettings at, IHttpClientFactory httpFactory, ILogger<SmsService> logger)
+    public SmsService(
+        AfricasTalkingSettings platform,
+        TenantContext tenantCtx,
+        IHttpClientFactory httpFactory,
+        ILogger<SmsService> logger)
     {
-        _at          = at;
+        _platform    = platform;
+        _tenantCtx   = tenantCtx;
         _httpFactory = httpFactory;
         _logger      = logger;
     }
 
     public async Task SendAsync(string to, string message)
     {
-        if (string.IsNullOrWhiteSpace(_at.ApiKey))
+        // Respect the per-tenant SMS toggle
+        if (!_tenantCtx.SmsEnabled)
+        {
+            _logger.LogDebug("SMS disabled for tenant {Slug}. Skipping SMS to {To}", _tenantCtx.TenantSlug, to);
+            return;
+        }
+
+        // Use tenant credentials if they have their own key (Professional plan) — else fall back to platform
+        var useTenantCreds = _tenantCtx.Plan == Data.Models.TenantPlan.Professional
+                          && !string.IsNullOrWhiteSpace(_tenantCtx.SmsApiKey);
+
+        var apiKey   = useTenantCreds ? _tenantCtx.SmsApiKey!    : _platform.ApiKey;
+        var username = useTenantCreds ? (_tenantCtx.SmsUsername ?? _tenantCtx.TenantSlug) : _platform.Username;
+        var senderId = useTenantCreds ? _tenantCtx.SmsSenderId    : _platform.SenderId;
+
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
             _logger.LogWarning("AfricasTalking not configured. Skipping SMS to {To}: {Preview}",
                 to, message.Length > 40 ? message[..40] + "..." : message);
             return;
         }
 
-        var endpoint = _at.Sandbox ? SandboxUrl : LiveUrl;
+        var endpoint = _platform.Sandbox ? SandboxUrl : LiveUrl;
 
         var form = new Dictionary<string, string>
         {
-            ["username"] = _at.Username,
+            ["username"] = username,
             ["to"]       = to,
             ["message"]  = message
         };
-        if (!string.IsNullOrWhiteSpace(_at.SenderId))
-            form["from"] = _at.SenderId;
+        if (!string.IsNullOrWhiteSpace(senderId))
+            form["from"] = senderId;
 
         var client = _httpFactory.CreateClient("africastalking");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.Add("apiKey", _at.ApiKey);
+        request.Headers.Add("apiKey", apiKey);
         request.Headers.Add("Accept", "application/json");
         request.Content = new FormUrlEncodedContent(form);
 

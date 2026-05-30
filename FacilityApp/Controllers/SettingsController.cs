@@ -25,7 +25,8 @@ public class SettingsController : ControllerBase
             tenant.Id, tenant.Name, tenant.Slug, tenant.Plan,
             tenant.ContactEmail, tenant.ContactPhone,
             tenant.Address, tenant.Website, tenant.CustomDomain,
-            tenant.PrimaryColour, tenant.LogoUrl
+            tenant.PrimaryColour, tenant.LogoUrl,
+            tenant.SmsEnabled, tenant.SmsApiKey, tenant.SmsUsername, tenant.SmsSenderId
         });
     }
 
@@ -52,5 +53,20 @@ public class SettingsController : ControllerBase
     {
         await _settings.UpdateBrandingAsync(req.LogoUrl, req.PrimaryColour);
         return NoContent();
+    }
+
+    // PATCH /api/settings/sms
+    [HttpPatch("sms")]
+    public async Task<IActionResult> UpdateSms([FromBody] UpdateSmsRequest req)
+    {
+        try
+        {
+            await _settings.UpdateSmsAsync(req.Enabled, req.ApiKey, req.Username, req.SenderId);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

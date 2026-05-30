@@ -18,6 +18,7 @@ public record TenantDto(Guid Id, string Name, string Slug, bool IsActive, int Pl
     string? Address, string? Website, string? PrimaryColour, string? LogoUrl, DateTime CreatedAt);
 public record CreateTenantRequest(string Name, string Slug, string ContactEmail);
 public record UpdatePlanRequest(int Plan);
+public record UpdateSmsRequest(bool Enabled, string? ApiKey, string? Username, string? SenderId);
 
 public record TenantHealthDto(
     int TotalStaff, int TotalResidents,

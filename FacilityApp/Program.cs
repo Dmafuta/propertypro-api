@@ -289,7 +289,14 @@ namespace FacilityApp
                         var tenantSlugClaim = ctx.User.FindFirstValue("tenant_slug");
                         var tenantNameClaim = ctx.User.FindFirstValue("tenant_name");
                         if (Guid.TryParse(tenantIdClaim, out var tenantId))
-                            tenantCtx.SetFromJwt(tenantId, tenantSlugClaim ?? "", tenantNameClaim ?? "");
+                        {
+                            var tenantSvc = ctx.RequestServices.GetRequiredService<ITenantService>();
+                            var tenant    = await tenantSvc.ResolveByIdAsync(tenantId);
+                            if (tenant is not null)
+                                tenantCtx.SetFromTenant(tenant);
+                            else
+                                tenantCtx.SetFromJwt(tenantId, tenantSlugClaim ?? "", tenantNameClaim ?? "");
+                        }
                     }
                 }
                 await next();

@@ -19,7 +19,8 @@ public class TenantService : ITenantService
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT "Id","Name","Slug","CustomDomain","IsActive","LogoUrl","PrimaryColour",
-                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem"
+                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem",
+                   "SmsEnabled","SmsApiKey","SmsUsername","SmsSenderId"
             FROM tenants
             WHERE "Slug" = @slug AND "IsActive" = true
             LIMIT 1
@@ -36,7 +37,8 @@ public class TenantService : ITenantService
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT "Id","Name","Slug","CustomDomain","IsActive","LogoUrl","PrimaryColour",
-                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem"
+                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem",
+                   "SmsEnabled","SmsApiKey","SmsUsername","SmsSenderId"
             FROM tenants
             WHERE "CustomDomain" = @host AND "IsActive" = true
             LIMIT 1
@@ -52,7 +54,8 @@ public class TenantService : ITenantService
         await using var cmd  = conn.CreateCommand();
         cmd.CommandText = """
             SELECT "Id","Name","Slug","CustomDomain","IsActive","LogoUrl","PrimaryColour",
-                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem"
+                   "ContactEmail","ContactPhone","Address","Website","CreatedAt","Plan","IsSystem",
+                   "SmsEnabled","SmsApiKey","SmsUsername","SmsSenderId"
             FROM tenants
             WHERE "Id" = @id
             LIMIT 1
@@ -78,5 +81,9 @@ public class TenantService : ITenantService
         CreatedAt     = r.GetDateTime(11),
         Plan          = (TenantPlan)r.GetInt32(12),
         IsSystem      = r.GetBoolean(13),
+        SmsEnabled    = r.GetBoolean(14),
+        SmsApiKey     = r.IsDBNull(15) ? null : r.GetString(15),
+        SmsUsername   = r.IsDBNull(16) ? null : r.GetString(16),
+        SmsSenderId   = r.IsDBNull(17) ? null : r.GetString(17),
     };
 }

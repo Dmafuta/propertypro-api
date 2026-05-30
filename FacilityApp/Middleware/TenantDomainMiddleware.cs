@@ -27,16 +27,7 @@ public class TenantDomainMiddleware(RequestDelegate next)
             {
                 var tenant = await tenantSvc.ResolveByDomainAsync(host);
                 if (tenant is not null)
-                {
-                    tenantCtx.TenantId       = tenant.Id;
-                    tenantCtx.TenantSlug     = tenant.Slug;
-                    tenantCtx.TenantName     = tenant.Name;
-                    tenantCtx.PrimaryColour  = tenant.PrimaryColour;
-                    tenantCtx.LogoUrl        = tenant.LogoUrl;
-                    tenantCtx.Plan           = tenant.Plan;
-                    tenantCtx.IsResolved     = true;
-                    tenantCtx.IsCustomDomain = true;
-                }
+                    tenantCtx.SetFromTenant(tenant, isCustomDomain: true);
             }
         }
 

@@ -16,6 +16,12 @@ public class TenantContext
     /// <summary>True when the tenant was resolved from a custom hostname (e.g. greatwallgardens.estate).</summary>
     public bool IsCustomDomain { get; set; }
 
+    // Per-tenant SMS settings
+    public bool SmsEnabled { get; set; } = true;
+    public string? SmsApiKey { get; set; }
+    public string? SmsUsername { get; set; }
+    public string? SmsSenderId { get; set; }
+
     /// <summary>
     /// URL prefix for generating links.
     /// Empty string on a custom domain, "/{slug}" on a shared domain.
@@ -39,6 +45,23 @@ public class TenantContext
         IsResolved = true;
     }
 
+    public void SetFromTenant(Data.Models.Tenant t, bool isCustomDomain = false)
+    {
+        TenantId       = t.Id;
+        TenantSlug     = t.Slug;
+        TenantName     = t.Name;
+        PrimaryColour  = t.PrimaryColour;
+        LogoUrl        = t.LogoUrl;
+        Plan           = t.Plan;
+        IsSystem       = t.IsSystem;
+        IsCustomDomain = isCustomDomain;
+        SmsEnabled     = t.SmsEnabled;
+        SmsApiKey      = t.SmsApiKey;
+        SmsUsername    = t.SmsUsername;
+        SmsSenderId    = t.SmsSenderId;
+        IsResolved     = true;
+    }
+
     public void Reset()
     {
         TenantId       = Guid.Empty;
@@ -50,5 +73,9 @@ public class TenantContext
         Plan           = TenantPlan.Starter;
         IsSystem       = false;
         IsCustomDomain = false;
+        SmsEnabled     = true;
+        SmsApiKey      = null;
+        SmsUsername    = null;
+        SmsSenderId    = null;
     }
 }
