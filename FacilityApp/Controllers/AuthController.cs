@@ -55,8 +55,10 @@ public class AuthController : ControllerBase
         if (tenant is null)
             return NotFound(new { error = "Facility not found." });
 
-        var user = await _users.FindByEmailAsync(req.Email.Trim().ToLower());
-        if (user is null || user.TenantId != tenant.Id || user.UserType != UserType.Staff)
+        var normalizedEmail = req.Email.Trim().ToUpper();
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail && u.TenantId == tenant.Id);
+        if (user is null || user.UserType != UserType.Staff)
             return Unauthorized(new { error = "Invalid email or password." });
 
         var ok = await _users.CheckPasswordAsync(user, req.Password);
@@ -75,8 +77,10 @@ public class AuthController : ControllerBase
         if (tenant is null)
             return NotFound(new { error = "Facility not found." });
 
-        var user = await _users.FindByEmailAsync(req.Email.Trim().ToLower());
-        if (user is null || user.TenantId != tenant.Id ||
+        var normalizedEmailR = req.Email.Trim().ToUpper();
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmailR && u.TenantId == tenant.Id);
+        if (user is null ||
             (user.UserType != UserType.HomeOwner && user.UserType != UserType.Resident))
             return Unauthorized(new { error = "Invalid email or password." });
 
@@ -218,8 +222,10 @@ public class AuthController : ControllerBase
         if (tenant is null)
             return NoContent();
 
-        var user = await _users.FindByEmailAsync(req.Email.Trim().ToLower());
-        if (user is null || user.TenantId != tenant.Id)
+        var normalizedEmailFp = req.Email.Trim().ToUpper();
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmailFp && u.TenantId == tenant.Id);
+        if (user is null)
             return NoContent();
 
         var token     = await _users.GeneratePasswordResetTokenAsync(user);
@@ -239,8 +245,10 @@ public class AuthController : ControllerBase
         if (tenant is null)
             return BadRequest(new { error = "Facility not found." });
 
-        var user = await _users.FindByEmailAsync(req.Email.Trim().ToLower());
-        if (user is null || user.TenantId != tenant.Id)
+        var normalizedEmailRp = req.Email.Trim().ToUpper();
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmailRp && u.TenantId == tenant.Id);
+        if (user is null)
             return BadRequest(new { error = "Invalid request." });
 
         var result = await _users.ResetPasswordAsync(user, req.Token, req.NewPassword);
