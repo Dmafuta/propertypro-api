@@ -19,6 +19,11 @@ public record TenantDto(Guid Id, string Name, string Slug, bool IsActive, int Pl
 public record CreateTenantRequest(string Name, string Slug, string ContactEmail);
 public record UpdatePlanRequest(int Plan);
 
+public record TenantHealthDto(
+    int TotalStaff, int TotalResidents,
+    int VisitorVolume30d, int MaintenanceBacklog,
+    int TotalUnits, int OccupiedUnits, int OpenIncidents);
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 public record UpcomingVisitDto(Guid Id, string VisitorName, string Purpose, DateTime ScheduledAt, string? HostName);
 

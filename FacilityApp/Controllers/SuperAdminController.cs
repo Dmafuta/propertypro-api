@@ -88,6 +88,51 @@ public class SuperAdminController : ControllerBase
         return NoContent();
     }
 
+    // GET /api/superadmin/tenants/{id}/health
+    [HttpGet("{id:guid}/health")]
+    public async Task<IActionResult> GetHealth(Guid id)
+    {
+        var tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant is null) return NotFound();
+
+        var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+
+        var totalStaff = await _db.Users
+            .IgnoreQueryFilters()
+            .CountAsync(u => u.TenantId == id && u.UserType == UserType.Staff);
+
+        var totalResidents = await _db.Users
+            .IgnoreQueryFilters()
+            .CountAsync(u => u.TenantId == id && u.UserType != UserType.Staff);
+
+        var visitorVolume30d = await _db.Visits
+            .IgnoreQueryFilters()
+            .CountAsync(v => v.TenantId == id && v.CheckedInAt >= thirtyDaysAgo);
+
+        var maintenanceBacklog = await _db.MaintenanceRequests
+            .IgnoreQueryFilters()
+            .CountAsync(m => m.TenantId == id &&
+                (m.Status == MaintenanceStatus.Open || m.Status == MaintenanceStatus.InProgress));
+
+        var totalUnits = await _db.Units
+            .IgnoreQueryFilters()
+            .CountAsync(u => u.TenantId == id);
+
+        var occupiedUnits = await _db.Units
+            .IgnoreQueryFilters()
+            .CountAsync(u => u.TenantId == id && u.IsOccupied);
+
+        var openIncidents = await _db.IncidentReports
+            .IgnoreQueryFilters()
+            .CountAsync(r => r.TenantId == id &&
+                (r.Status == IncidentStatus.Open || r.Status == IncidentStatus.UnderReview));
+
+        return Ok(new TenantHealthDto(
+            totalStaff, totalResidents,
+            visitorVolume30d, maintenanceBacklog,
+            totalUnits, occupiedUnits, openIncidents));
+    }
+
     // PATCH /api/superadmin/tenants/{id}/plan
     [HttpPatch("{id:guid}/plan")]
     public async Task<IActionResult> UpdatePlan(Guid id, [FromBody] UpdatePlanRequest req)
