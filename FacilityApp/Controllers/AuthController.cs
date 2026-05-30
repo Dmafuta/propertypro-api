@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace FacilityApp.Controllers;
 
@@ -20,6 +21,10 @@ public class AuthController : ControllerBase
     private readonly IEmailService                  _email;
     private readonly JwtSettings                    _jwtSettings;
     private readonly AppDbContext                   _db;
+    private readonly ISmsService                    _sms;
+    private readonly IMemoryCache                   _cache;
+
+    private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
     public AuthController(
         UserManager<ApplicationUser> users,
@@ -27,7 +32,9 @@ public class AuthController : ControllerBase
         IJwtService jwt,
         IEmailService email,
         JwtSettings jwtSettings,
-        AppDbContext db)
+        AppDbContext db,
+        ISmsService sms,
+        IMemoryCache cache)
     {
         _users       = users;
         _tenantSvc   = tenantSvc;
@@ -35,6 +42,8 @@ public class AuthController : ControllerBase
         _email       = email;
         _jwtSettings = jwtSettings;
         _db          = db;
+        _sms         = sms;
+        _cache       = cache;
     }
 
     // ── Staff Login ─────────────────────────────────────────────────────────
@@ -188,6 +197,65 @@ public class AuthController : ControllerBase
 
         await _jwt.RevokeAllUserTokensAsync(user.Id);
         return NoContent();
+    }
+
+    // ── Phone verification ──────────────────────────────────────────────────
+
+    [HttpGet("me/phone")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> GetPhoneStatus()
+    {
+        var user = await _users.FindByIdAsync(CurrentUserId);
+        if (user is null) return NotFound();
+        return Ok(new PhoneStatusDto(user.PhoneNumber, user.PhoneNumberConfirmed, user.TwoFactorEnabled));
+    }
+
+    [HttpPost("send-phone-verification")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> SendPhoneVerification([FromBody] SendPhoneVerificationRequest req)
+    {
+        var user = await _users.FindByIdAsync(CurrentUserId);
+        if (user is null) return NotFound();
+
+        var code    = Random.Shared.Next(100_000, 999_999).ToString();
+        var cacheKey = $"phone_otp:{user.Id}";
+        _cache.Set(cacheKey, (code, req.PhoneNumber), TimeSpan.FromMinutes(10));
+
+        var message = $"Your verification code is {code}. It expires in 10 minutes.";
+        _ = _sms.SendAsync(req.PhoneNumber, message);
+
+        return Ok(new SendPhoneVerificationResponse(MaskPhone(req.PhoneNumber)));
+    }
+
+    [HttpPost("verify-phone")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> VerifyPhone([FromBody] VerifyPhoneRequest req)
+    {
+        var user = await _users.FindByIdAsync(CurrentUserId);
+        if (user is null) return NotFound();
+
+        var cacheKey = $"phone_otp:{user.Id}";
+        if (!_cache.TryGetValue(cacheKey, out (string code, string phone) stored))
+            return BadRequest(new { error = "Code expired or not found. Please request a new code." });
+
+        if (stored.code != req.Code || stored.phone != req.PhoneNumber)
+            return BadRequest(new { error = "Invalid code. Please try again." });
+
+        _cache.Remove(cacheKey);
+
+        var token  = await _users.GenerateChangePhoneNumberTokenAsync(user, req.PhoneNumber);
+        var result = await _users.ChangePhoneNumberAsync(user, req.PhoneNumber, token);
+        if (!result.Succeeded)
+            return BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Failed to update phone number." });
+
+        return NoContent();
+    }
+
+    private static string MaskPhone(string phone)
+    {
+        if (phone.Length <= 4) return "****";
+        var visible = phone.Length >= 7 ? 3 : 1;
+        return phone[..visible] + new string('*', phone.Length - visible - 4) + phone[^4..];
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

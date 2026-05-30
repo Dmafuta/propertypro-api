@@ -246,6 +246,8 @@ namespace FacilityApp
             builder.Services.AddScoped<IParkingService, ParkingService>();
             builder.Services.AddScoped<IParcelService, ParcelService>();
             builder.Services.AddScoped<IEntranceService, EntranceService>();
+            builder.Services.AddScoped<IAccountService, AccountService>();
+            builder.Services.AddMemoryCache();
 
             var app = builder.Build();
 
@@ -335,7 +337,8 @@ namespace FacilityApp
                     if (existing is not null)
                         return Results.Ok($"User {email} already exists.");
 
-                    var user = new ApplicationUser { UserName = email, Email = email, FullName = fullName, TenantId = tenant.Id, UserType = UserType.Staff };
+                    var adminParts = fullName.Split(' ', 2);
+                    var user = new ApplicationUser { UserName = email, Email = email, FirstName = adminParts[0], LastName = adminParts.Length > 1 ? adminParts[1] : string.Empty, TenantId = tenant.Id, UserType = UserType.Staff };
                     var result = await userManager.CreateAsync(user, password);
                     if (!result.Succeeded)
                         return Results.BadRequest(string.Join(", ", result.Errors.Select(e => e.Description)));
@@ -367,7 +370,8 @@ namespace FacilityApp
                     if (existing is not null)
                         return Results.Ok($"User {email} already exists.");
 
-                    var user = new ApplicationUser { UserName = email, Email = email, FullName = fullName, TenantId = tenant.Id, UserType = UserType.Staff };
+                    var superParts = fullName.Split(' ', 2);
+                    var user = new ApplicationUser { UserName = email, Email = email, FirstName = superParts[0], LastName = superParts.Length > 1 ? superParts[1] : string.Empty, TenantId = tenant.Id, UserType = UserType.Staff };
                     var result = await userManager.CreateAsync(user, password);
                     if (!result.Succeeded)
                         return Results.BadRequest(string.Join(", ", result.Errors.Select(e => e.Description)));
@@ -453,13 +457,15 @@ namespace FacilityApp
             var existing = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == email);
             if (existing is not null) return;
 
+            var seedParts = fullName.Split(' ', 2);
             var user = new ApplicationUser
             {
-                UserName = email,
-                Email    = email,
-                FullName = fullName,
-                TenantId = tenant.Id,
-                UserType = UserType.Staff,
+                UserName  = email,
+                Email     = email,
+                FirstName = seedParts[0],
+                LastName  = seedParts.Length > 1 ? seedParts[1] : string.Empty,
+                TenantId  = tenant.Id,
+                UserType  = UserType.Staff,
             };
             var result = await userManager.CreateAsync(user, password);
             if (result.Succeeded)

@@ -108,6 +108,21 @@ public record CreateStaffRequest(string FullName, string Email, string Password,
 public record UpdateUserRoleRequest(string Role);
 public record UpdatePhoneRequest(string? PhoneNumber);
 
+// ── Account (self-service profile) ────────────────────────────────────────────
+public record UserProfileDto(
+    string Id, string FirstName, string? MiddleName, string LastName,
+    string UserName, string Email, string? SecondaryEmail,
+    string? PhoneNumber, bool PhoneNumberConfirmed, string? AvatarUrl, string[] Roles);
+
+public record UpdateProfileRequest(string FirstName, string? MiddleName, string LastName);
+public record UpdateUsernameRequest(string UserName);
+public record UpdateEmailRequest(string PrimaryEmail, string? SecondaryEmail);
+public record AvatarUploadResponse(string AvatarUrl);
+public record PhoneStatusDto(string? PhoneNumber, bool PhoneNumberConfirmed, bool TwoFactorEnabled);
+public record SendPhoneVerificationRequest(string PhoneNumber);
+public record SendPhoneVerificationResponse(string MaskedPhone);
+public record VerifyPhoneRequest(string PhoneNumber, string Code);
+
 // ── Parking ───────────────────────────────────────────────────────────────────
 public record RegisterVehicleRequest(
     string OwnerId, string Plate, string Make, string Model,

@@ -70,13 +70,15 @@ public class UsersController : ControllerBase
         if (!IsValidStaffRole(req.Role))
             return BadRequest(new { error = "Invalid role." });
 
+        var nameParts = req.FullName.Trim().Split(' ', 2);
         var user = new ApplicationUser
         {
-            UserName   = req.Email.Trim().ToLower(),
-            Email      = req.Email.Trim().ToLower(),
-            FullName   = req.FullName.Trim(),
-            TenantId   = _tenantCtx.TenantId,
-            UserType   = UserType.Staff
+            UserName  = req.Email.Trim().ToLower(),
+            Email     = req.Email.Trim().ToLower(),
+            FirstName = nameParts[0],
+            LastName  = nameParts.Length > 1 ? nameParts[1] : string.Empty,
+            TenantId  = _tenantCtx.TenantId,
+            UserType  = UserType.Staff
         };
 
         var result = await _users.CreateAsync(user, req.Password);

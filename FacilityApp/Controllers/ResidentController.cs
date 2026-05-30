@@ -270,7 +270,11 @@ public class ResidentController : ControllerBase
         if (user is null) return NotFound();
 
         if (!string.IsNullOrWhiteSpace(req.FullName))
-            user.FullName = req.FullName.Trim();
+        {
+            var parts = req.FullName.Trim().Split(' ', 2);
+            user.FirstName = parts[0];
+            user.LastName  = parts.Length > 1 ? parts[1] : string.Empty;
+        }
 
         if (req.PhoneNumber is not null)
             user.PhoneNumber = req.PhoneNumber.Trim();
