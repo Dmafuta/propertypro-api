@@ -21,6 +21,7 @@ public record TenantDto(Guid Id, string Name, string Slug, bool IsActive, int Pl
     string? CustomDomain, string? ContactEmail, string? ContactPhone,
     string? Address, string? Website, string? PrimaryColour, string? LogoUrl, DateTime CreatedAt);
 public record CreateTenantRequest(string Name, string Slug, string ContactEmail);
+public record SeedAdminRequest(string FirstName, string LastName, string Email);
 public record UpdatePlanRequest(int Plan);
 public record UpdateSmsRequest(bool Enabled, string? ApiKey, string? Username, string? SenderId);
 

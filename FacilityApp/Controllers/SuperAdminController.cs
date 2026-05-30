@@ -1,5 +1,6 @@
 using FacilityApp.Data;
 using FacilityApp.Data.Models;
+using FacilityApp.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -16,15 +17,18 @@ public class SuperAdminController : ControllerBase
     private readonly AppDbContext                 _db;
     private readonly UserManager<ApplicationUser> _users;
     private readonly RoleManager<IdentityRole>    _roles;
+    private readonly IEmailService                _email;
 
     public SuperAdminController(
         AppDbContext db,
         UserManager<ApplicationUser> users,
-        RoleManager<IdentityRole> roles)
+        RoleManager<IdentityRole> roles,
+        IEmailService email)
     {
         _db    = db;
         _users = users;
         _roles = roles;
+        _email = email;
     }
 
     // GET /api/superadmin/tenants
@@ -131,6 +135,50 @@ public class SuperAdminController : ControllerBase
             totalStaff, totalResidents,
             visitorVolume30d, maintenanceBacklog,
             totalUnits, occupiedUnits, openIncidents));
+    }
+
+    // POST /api/superadmin/tenants/{id}/seed-admin
+    [HttpPost("{id:guid}/seed-admin")]
+    public async Task<IActionResult> SeedAdmin(Guid id, [FromBody] SeedAdminRequest req)
+    {
+        var tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant is null) return NotFound(new { error = "Facility not found." });
+
+        var email = req.Email.Trim().ToLower();
+        if (await _users.FindByEmailAsync(email) is not null)
+            return Conflict(new { error = "A user with this email already exists." });
+
+        // Ensure Admin role exists
+        if (!await _roles.RoleExistsAsync("Admin"))
+            await _roles.CreateAsync(new IdentityRole("Admin"));
+
+        var user = new ApplicationUser
+        {
+            FirstName    = req.FirstName.Trim(),
+            LastName     = req.LastName.Trim(),
+            Email        = email,
+            UserName     = email,
+            TenantId     = tenant.Id,
+            UserType     = UserType.Staff,
+            EmailConfirmed = true,
+        };
+
+        // Create with a random placeholder password — user must set their own via invite link
+        var tempPassword = $"Tmp!{Guid.NewGuid():N}";
+        var result = await _users.CreateAsync(user, tempPassword);
+        if (!result.Succeeded)
+            return BadRequest(new { error = result.Errors.FirstOrDefault()?.Description ?? "Failed to create user." });
+
+        await _users.AddToRoleAsync(user, "Admin");
+
+        // Generate set-password link (reuses the password reset flow)
+        var token   = await _users.GeneratePasswordResetTokenAsync(user);
+        var encoded = Uri.EscapeDataString(token);
+        var setPasswordLink = $"{Request.Scheme}://{Request.Host}/{tenant.Slug}/reset-password?email={Uri.EscapeDataString(email)}&token={encoded}";
+
+        _ = _email.SendAdminInviteAsync(email, user.FullName, tenant.Name, setPasswordLink);
+
+        return Ok(new { userId = user.Id, email = user.Email, fullName = user.FullName });
     }
 
     // PATCH /api/superadmin/tenants/{id}/plan
