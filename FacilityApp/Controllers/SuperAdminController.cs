@@ -18,17 +18,20 @@ public class SuperAdminController : ControllerBase
     private readonly UserManager<ApplicationUser> _users;
     private readonly RoleManager<IdentityRole>    _roles;
     private readonly IEmailService                _email;
+    private readonly ILogger<SuperAdminController> _logger;
 
     public SuperAdminController(
         AppDbContext db,
         UserManager<ApplicationUser> users,
         RoleManager<IdentityRole> roles,
-        IEmailService email)
+        IEmailService email,
+        ILogger<SuperAdminController> logger)
     {
-        _db    = db;
-        _users = users;
-        _roles = roles;
-        _email = email;
+        _db     = db;
+        _users  = users;
+        _roles  = roles;
+        _email  = email;
+        _logger = logger;
     }
 
     // GET /api/superadmin/tenants
@@ -176,7 +179,9 @@ public class SuperAdminController : ControllerBase
         var encoded = Uri.EscapeDataString(token);
         var setPasswordLink = $"{Request.Scheme}://{Request.Host}/{tenant.Slug}/reset-password?email={Uri.EscapeDataString(email)}&token={encoded}";
 
-        _ = _email.SendAdminInviteAsync(email, user.FullName, tenant.Name, setPasswordLink);
+        _ = _email.SendAdminInviteAsync(email, user.FullName, tenant.Name, setPasswordLink)
+            .ContinueWith(t => _logger.LogError(t.Exception, "Failed to send admin invite email to {Email}", email),
+                TaskContinuationOptions.OnlyOnFaulted);
 
         return Ok(new { userId = user.Id, email = user.Email, fullName = user.FullName });
     }
