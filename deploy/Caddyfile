@@ -1,8 +1,22 @@
 greatwallgardens.estate {
 
-    # ── ASP.NET Core REST API ─────────────────────────────────────────────────
-    # Requests to /backend/* are stripped of the prefix and forwarded to
-    # the app container at /api/* (e.g. /backend/api/auth/login → /api/auth/login).
+    # ── Static files served by ASP.NET Core ──────────────────────────────────
+    handle /uploads/* {
+        reverse_proxy app:8080
+    }
+    handle /documents/* {
+        reverse_proxy app:8080
+    }
+
+    # Health check + dev seed endpoints
+    handle /health {
+        reverse_proxy app:8080
+    }
+    handle /dev/* {
+        reverse_proxy app:8080
+    }
+
+    # ── Next.js API calls: /backend/* → ASP.NET Core (strips prefix) ─────────
     handle_path /backend/* {
         reverse_proxy app:8080 {
             header_up Host {host}
@@ -11,27 +25,39 @@ greatwallgardens.estate {
         }
     }
 
-    # Static files served by ASP.NET Core (visitor photos, documents)
-    handle /uploads/* {
-        reverse_proxy app:8080
-    }
-    handle /documents/* {
-        reverse_proxy app:8080
-    }
-
-    # Health check endpoint
-    handle /health {
-        reverse_proxy app:8080
-    }
-
-    # Dev seed endpoints (only active in Development environment)
-    handle /dev/* {
-        reverse_proxy app:8080
-    }
-
-    # ── Next.js frontend (catch-all) ──────────────────────────────────────────
-    handle {
+    # ── Next.js SuperAdmin frontend ───────────────────────────────────────────
+    handle /superadmin/* {
         reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_down -Server
+        }
+    }
+    handle /platform/* {
+        reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_down -Server
+        }
+    }
+    handle /_next/* {
+        reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_down -Server
+        }
+    }
+    handle /api/auth/* {
+        reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_down -Server
+        }
+    }
+
+    # ── Blazor app: all tenant pages + ASP.NET Core (catch-all) ──────────────
+    handle {
+        reverse_proxy app:8080 {
             header_up Host {host}
             header_up X-Forwarded-Proto {scheme}
             header_down -Server

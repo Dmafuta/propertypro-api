@@ -30,6 +30,11 @@ public record TenantHealthDto(
     int VisitorVolume30d, int MaintenanceBacklog,
     int TotalUnits, int OccupiedUnits, int OpenIncidents);
 
+// ── Tenant (public) ───────────────────────────────────────────────────────────
+public record TenantPublicDto(
+    string Id, string Name, string Slug, string Plan,
+    string? LogoUrl, string? PrimaryColour);
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 public record UpcomingVisitDto(Guid Id, string VisitorName, string Purpose, DateTime ScheduledAt, string? HostName);
 
