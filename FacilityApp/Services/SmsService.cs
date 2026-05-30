@@ -77,13 +77,13 @@ public class SmsService : ISmsService
         try
         {
             var response = await client.SendAsync(request);
+            var body = await response.Content.ReadAsStringAsync();
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("SMS sent to {To}", to);
+                _logger.LogInformation("SMS sent to {To} — AT response: {Body}", to, body);
             }
             else
             {
-                var body = await response.Content.ReadAsStringAsync();
                 _logger.LogError("SMS to {To} failed: HTTP {StatusCode} — {Body}", to, (int)response.StatusCode, body);
             }
         }
