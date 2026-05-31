@@ -36,7 +36,13 @@ public class DocumentsController : ControllerBase
     {
         await using var db = await _factory.CreateDbContextAsync();
         var items = await db.Documents.OrderByDescending(d => d.UploadedAt).ToListAsync();
-        return Ok(items);
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var slug    = _tenantCtx.TenantSlug;
+        var dtos = items.Select(d => new AdminDocumentDto(
+            d.Id, d.Title, d.Description, d.Category.ToString(),
+            d.OriginalFileName, d.FileSize, d.IsActive,
+            d.UploadedAt, $"{baseUrl}/documents/{slug}/{d.StoredFileName}"));
+        return Ok(dtos);
     }
 
     // GET /api/documents/active   (residents — active only)

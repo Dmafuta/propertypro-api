@@ -161,6 +161,17 @@ public record UpdateBrandingRequest(string? LogoUrl, string? PrimaryColour);
 // ── Announcements ─────────────────────────────────────────────────────────────
 public record CreateAnnouncementRequest(string Title, string Body, int Category, DateTime? ExpiresAt);
 
+// ── Documents (admin) ─────────────────────────────────────────────────────────
+public record AdminDocumentDto(
+    Guid Id, string Title, string? Description, string Category,
+    string OriginalFileName, long FileSize, bool IsActive,
+    DateTime UploadedAt, string FileUrl);
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+public record AuditLogDto(
+    long Id, string? UserId, string UserName, string Action,
+    string EntityType, string? EntityId, string? Details, DateTime CreatedAt);
+
 // ── Badge ─────────────────────────────────────────────────────────────────────
 public record BadgeDto(
     Guid VisitId,
