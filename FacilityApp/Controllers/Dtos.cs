@@ -161,6 +161,25 @@ public record UpdateBrandingRequest(string? LogoUrl, string? PrimaryColour);
 // ── Announcements ─────────────────────────────────────────────────────────────
 public record CreateAnnouncementRequest(string Title, string Body, int Category, DateTime? ExpiresAt);
 
+// ── HR ────────────────────────────────────────────────────────────────────────
+public record HrStaffDto(
+    string Id, string FullName, string Email, string? PhoneNumber,
+    string[] Roles, string? Department, string? ContractType,
+    DateTime? JoiningDate, bool IsActive, DateTime CreatedAt,
+    EmployeeProfileDto? Profile);
+
+public record EmployeeProfileDto(
+    string? MiddleName, string? NationalId, string? PassportNumber,
+    DateTime? DateOfBirth, string? Gender, string? Address,
+    DateTime? JoiningDate, string? ContractType, string? Department,
+    string? EmergencyContactName, string? EmergencyContactPhone);
+
+public record UpsertEmployeeProfileRequest(
+    string? MiddleName, string? NationalId, string? PassportNumber,
+    DateTime? DateOfBirth, string? Gender, string? Address,
+    DateTime? JoiningDate, string? ContractType, string? Department,
+    string? EmergencyContactName, string? EmergencyContactPhone);
+
 // ── Entrances ─────────────────────────────────────────────────────────────────
 public record CreateEntranceRequest(string Name, string? Description);
 public record UpdateEntranceRequest(string Name, string? Description);

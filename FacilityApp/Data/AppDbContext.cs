@@ -28,7 +28,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<VehicleTag> VehicleTags { get; set; }
     public DbSet<ParkingRecord> ParkingRecords { get; set; }
     public DbSet<Parcel>       Parcels       { get; set; }
-    public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<RefreshToken>     RefreshTokens     { get; set; }
+    public DbSet<EmployeeProfile>  EmployeeProfiles  { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -65,6 +66,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ParkingRecord>().ToTable("parking_records");
         builder.Entity<Parcel>().ToTable("parcels");
         builder.Entity<RefreshToken>().ToTable("refresh_tokens");
+        builder.Entity<EmployeeProfile>().ToTable("employee_profiles");
 
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
 
@@ -106,6 +108,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<VehicleTag>().HasQueryFilter(t => t.TenantId == CurrentTenantId);
         builder.Entity<ParkingRecord>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
         builder.Entity<Parcel>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
+        builder.Entity<EmployeeProfile>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         builder.Entity<UnitRequest>()
             .HasOne(r => r.Resident)
@@ -248,6 +251,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(p => p.ReceivedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<EmployeeProfile>()
+            .HasOne(e => e.User)
+            .WithOne()
+            .HasForeignKey<EmployeeProfile>(e => e.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<EmployeeProfile>()
+            .HasIndex(e => new { e.TenantId, e.UserId })
+            .IsUnique();
 
         builder.Entity<RefreshToken>()
             .HasOne(r => r.User)
