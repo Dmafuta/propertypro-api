@@ -248,6 +248,8 @@ namespace FacilityApp
             builder.Services.AddScoped<IParcelService, ParcelService>();
             builder.Services.AddScoped<IEntranceService, EntranceService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
+            builder.Services.AddScoped<IUnitTypeService, UnitTypeService>();
+            builder.Services.AddScoped<IMeterService, MeterService>();
             builder.Services.AddMemoryCache();
 
             var app = builder.Build();

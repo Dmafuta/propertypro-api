@@ -1,10 +1,11 @@
 namespace FacilityApp.Data.Models;
 
 /// <summary>
-/// Links a user to a unit. A user can have multiple links:
-///   - HomeOwner with tenants:       Owner link only
-///   - HomeOwner living in own unit: Owner link + Occupant link
-///   - Pure Resident:                Occupant link only
+/// Links a user to a unit. A unit can have multiple occupants simultaneously.
+///   - HomeOwner with tenants:        Owner link only
+///   - HomeOwner living in own unit:  Owner link + Occupant link
+///   - Pure Resident:                 Occupant link only
+///   - Families / couples:            Multiple Occupant links on the same unit
 /// </summary>
 public class UserUnit
 {
@@ -17,4 +18,8 @@ public class UserUnit
     public Unit Unit { get; set; } = null!;
     public UnitLinkType LinkType { get; set; }
     public DateTime LinkedAt { get; set; } = DateTime.UtcNow;
+
+    // Tenancy tracking
+    public DateTime? MoveInDate { get; set; }
+    public DateTime? MoveOutDate { get; set; }
 }

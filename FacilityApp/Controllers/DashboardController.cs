@@ -45,7 +45,7 @@ public class DashboardController : ControllerBase
             m.Status == MaintenanceStatus.Open || m.Status == MaintenanceStatus.InProgress);
 
         var totalUnits           = await db.Units.CountAsync();
-        var occupiedUnits        = await db.Units.CountAsync(u => u.IsOccupied);
+        var occupiedUnits        = await db.Units.CountAsync(u => u.Status == FacilityApp.Data.Models.UnitStatus.Occupied);
         var openIncidents        = await db.IncidentReports.CountAsync(r =>
             r.Status == IncidentStatus.Open || r.Status == IncidentStatus.UnderReview);
         var pendingUnitRequests  = await db.UnitRequests.CountAsync(r => r.Status == UnitRequestStatus.Pending);

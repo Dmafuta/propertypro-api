@@ -13,16 +13,18 @@ public class UnitService : IUnitService
 
     public UnitService(AppDbContext context, UserManager<ApplicationUser> userManager, TenantContext tenantCtx)
     {
-        _context    = context;
+        _context     = context;
         _userManager = userManager;
-        _tenantCtx  = tenantCtx;
+        _tenantCtx   = tenantCtx;
     }
 
     public async Task<List<UnitDetails>> GetAllAsync()
     {
         var units = await _context.Units
-            .Include(u => u.UserUnits)
+            .Include(u => u.UnitType)
+            .Include(u => u.UserUnits.Where(uu => uu.MoveOutDate == null))
                 .ThenInclude(uu => uu.User)
+            .Include(u => u.Meters.Where(m => m.IsActive))
             .OrderBy(u => u.Block)
             .ThenBy(u => u.UnitNumber)
             .ToListAsync();
@@ -30,11 +32,32 @@ public class UnitService : IUnitService
         return units.Select(u => new UnitDetails(
             u,
             u.UserUnits.FirstOrDefault(uu => uu.LinkType == UnitLinkType.Owner)?.User,
-            u.UserUnits.FirstOrDefault(uu => uu.LinkType == UnitLinkType.Occupant)?.User
+            u.UserUnits.Where(uu => uu.LinkType == UnitLinkType.Occupant).Select(uu => uu.User).ToList()
         )).ToList();
     }
 
-    public async Task<Unit> CreateAsync(string unitNumber, string? block, string? floor, string? description)
+    public async Task<UnitDetails?> GetByIdAsync(Guid unitId)
+    {
+        var unit = await _context.Units
+            .Include(u => u.UnitType)
+            .Include(u => u.UserUnits)
+                .ThenInclude(uu => uu.User)
+            .Include(u => u.Meters)
+            .FirstOrDefaultAsync(u => u.Id == unitId);
+
+        if (unit is null) return null;
+
+        return new UnitDetails(
+            unit,
+            unit.UserUnits.FirstOrDefault(uu => uu.LinkType == UnitLinkType.Owner)?.User,
+            unit.UserUnits.Where(uu => uu.LinkType == UnitLinkType.Occupant && uu.MoveOutDate == null)
+                .Select(uu => uu.User).ToList()
+        );
+    }
+
+    public async Task<Unit> CreateAsync(string unitNumber, string? block, string? floor, string? description,
+        Guid? unitTypeId, UnitStatus status, decimal? sizeM2, int? bedrooms, int? bathrooms,
+        int parkingBays, decimal? monthlyLevy, string? notes)
     {
         var unit = new Unit
         {
@@ -42,14 +65,24 @@ public class UnitService : IUnitService
             UnitNumber  = unitNumber.Trim(),
             Block       = block?.Trim(),
             Floor       = floor?.Trim(),
-            Description = description?.Trim()
+            Description = description?.Trim(),
+            UnitTypeId  = unitTypeId,
+            Status      = status,
+            SizeM2      = sizeM2,
+            Bedrooms    = bedrooms,
+            Bathrooms   = bathrooms,
+            ParkingBays = parkingBays,
+            MonthlyLevy = monthlyLevy,
+            Notes       = notes?.Trim(),
         };
         _context.Units.Add(unit);
         await _context.SaveChangesAsync();
         return unit;
     }
 
-    public async Task UpdateAsync(Guid unitId, string unitNumber, string? block, string? floor, string? description)
+    public async Task UpdateAsync(Guid unitId, string unitNumber, string? block, string? floor, string? description,
+        Guid? unitTypeId, UnitStatus status, decimal? sizeM2, int? bedrooms, int? bathrooms,
+        int parkingBays, decimal? monthlyLevy, string? notes)
     {
         var unit = await _context.Units.FindAsync(unitId)
             ?? throw new InvalidOperationException("Unit not found.");
@@ -57,12 +90,29 @@ public class UnitService : IUnitService
         unit.Block       = block?.Trim();
         unit.Floor       = floor?.Trim();
         unit.Description = description?.Trim();
+        unit.UnitTypeId  = unitTypeId;
+        unit.Status      = status;
+        unit.SizeM2      = sizeM2;
+        unit.Bedrooms    = bedrooms;
+        unit.Bathrooms   = bathrooms;
+        unit.ParkingBays = parkingBays;
+        unit.MonthlyLevy = monthlyLevy;
+        unit.Notes       = notes?.Trim();
         await _context.SaveChangesAsync();
     }
 
+    public async Task PatchStatusAsync(Guid unitId, UnitStatus status)
+    {
+        var unit = await _context.Units.FindAsync(unitId)
+            ?? throw new InvalidOperationException("Unit not found.");
+        unit.Status = status;
+        await _context.SaveChangesAsync();
+    }
+
+    // ── Owner ─────────────────────────────────────────────────────────────────
+
     public async Task AssignOwnerAsync(Guid unitId, string userId)
     {
-        // Remove existing owner link for this unit
         var existing = await _context.UserUnits
             .FirstOrDefaultAsync(uu => uu.UnitId == unitId && uu.LinkType == UnitLinkType.Owner);
         if (existing is not null)
@@ -73,7 +123,7 @@ public class UnitService : IUnitService
             TenantId = _tenantCtx.TenantId,
             UnitId   = unitId,
             UserId   = userId,
-            LinkType = UnitLinkType.Owner
+            LinkType = UnitLinkType.Owner,
         });
         await _context.SaveChangesAsync();
     }
@@ -87,58 +137,68 @@ public class UnitService : IUnitService
         await _context.SaveChangesAsync();
     }
 
-    public async Task AssignOccupantAsync(Guid unitId, string userId)
+    // ── Occupants (multiple supported) ────────────────────────────────────────
+
+    public async Task AddOccupantAsync(Guid unitId, string userId, DateTime? moveInDate)
     {
-        // Remove current occupant link (and role if they have no other occupant links)
+        // Check if already an active occupant of this unit
         var existing = await _context.UserUnits
-            .FirstOrDefaultAsync(uu => uu.UnitId == unitId && uu.LinkType == UnitLinkType.Occupant);
-
+            .FirstOrDefaultAsync(uu => uu.UnitId == unitId && uu.UserId == userId
+                && uu.LinkType == UnitLinkType.Occupant && uu.MoveOutDate == null);
         if (existing is not null)
-        {
-            var oldUser = await _userManager.FindByIdAsync(existing.UserId);
-            _context.UserUnits.Remove(existing);
-            await _context.SaveChangesAsync();
-
-            if (oldUser is not null)
-                await RevokeOccupantRoleIfUnlinkedAsync(oldUser);
-        }
+            throw new InvalidOperationException("This user is already an active occupant of this unit.");
 
         _context.UserUnits.Add(new UserUnit
         {
-            TenantId = _tenantCtx.TenantId,
-            UnitId   = unitId,
-            UserId   = userId,
-            LinkType = UnitLinkType.Occupant
+            TenantId    = _tenantCtx.TenantId,
+            UnitId      = unitId,
+            UserId      = userId,
+            LinkType    = UnitLinkType.Occupant,
+            MoveInDate  = moveInDate ?? DateTime.UtcNow,
         });
 
+        // Update unit status to Occupied
         var unit = await _context.Units.FindAsync(unitId);
-        if (unit is not null) unit.IsOccupied = true;
+        if (unit is not null && unit.Status == UnitStatus.Available)
+            unit.Status = UnitStatus.Occupied;
 
         await _context.SaveChangesAsync();
 
-        // Grant Occupant role to new occupant
-        var newUser = await _userManager.FindByIdAsync(userId);
-        if (newUser is not null && !await _userManager.IsInRoleAsync(newUser, Program.RoleOccupant))
-            await _userManager.AddToRoleAsync(newUser, Program.RoleOccupant);
+        // Grant Occupant role
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is not null && !await _userManager.IsInRoleAsync(user, Program.RoleOccupant))
+            await _userManager.AddToRoleAsync(user, Program.RoleOccupant);
     }
 
-    public async Task RemoveOccupantAsync(Guid unitId)
+    public async Task RemoveOccupantAsync(Guid unitId, string userId, DateTime? moveOutDate)
     {
         var link = await _context.UserUnits
-            .FirstOrDefaultAsync(uu => uu.UnitId == unitId && uu.LinkType == UnitLinkType.Occupant);
-        if (link is null) return;
+            .FirstOrDefaultAsync(uu => uu.UnitId == unitId && uu.UserId == userId
+                && uu.LinkType == UnitLinkType.Occupant && uu.MoveOutDate == null)
+            ?? throw new InvalidOperationException("Active occupant link not found.");
 
-        var user = await _userManager.FindByIdAsync(link.UserId);
-        _context.UserUnits.Remove(link);
+        link.MoveOutDate = moveOutDate ?? DateTime.UtcNow;
 
-        var unit = await _context.Units.FindAsync(unitId);
-        if (unit is not null) unit.IsOccupied = false;
+        // If no remaining occupants, mark unit as Vacant
+        var remainingOccupants = await _context.UserUnits
+            .CountAsync(uu => uu.UnitId == unitId && uu.LinkType == UnitLinkType.Occupant
+                && uu.MoveOutDate == null && uu.UserId != userId);
+
+        if (remainingOccupants == 0)
+        {
+            var unit = await _context.Units.FindAsync(unitId);
+            if (unit is not null && unit.Status == UnitStatus.Occupied)
+                unit.Status = UnitStatus.Vacant;
+        }
 
         await _context.SaveChangesAsync();
 
+        var user = await _userManager.FindByIdAsync(userId);
         if (user is not null)
             await RevokeOccupantRoleIfUnlinkedAsync(user);
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     public async Task DeleteAsync(Guid unitId)
     {
@@ -147,8 +207,8 @@ public class UnitService : IUnitService
             .FirstOrDefaultAsync(u => u.Id == unitId)
             ?? throw new InvalidOperationException("Unit not found.");
 
-        if (unit.UserUnits.Any(uu => uu.LinkType == UnitLinkType.Occupant))
-            throw new InvalidOperationException("Cannot delete a unit with an active occupant. Remove the occupant first.");
+        if (unit.UserUnits.Any(uu => uu.LinkType == UnitLinkType.Occupant && uu.MoveOutDate == null))
+            throw new InvalidOperationException("Cannot delete a unit with active occupants. Remove occupants first.");
 
         _context.UserUnits.RemoveRange(unit.UserUnits);
         _context.Units.Remove(unit);
@@ -157,16 +217,13 @@ public class UnitService : IUnitService
 
     public async Task<List<ApplicationUser>> GetAssignableUsersAsync(UnitLinkType linkType)
     {
-        // TenantContext is set, so query filter applies automatically
         var users = _context.Users.AsQueryable();
-
         return linkType == UnitLinkType.Owner
             ? await users.Where(u => u.UserType == UserType.HomeOwner)
-                         .OrderBy(u => u.FullName)
+                         .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
                          .ToListAsync()
             : await users.Where(u => u.UserType == UserType.Resident || u.UserType == UserType.HomeOwner)
-                         .OrderBy(u => u.UserType)
-                         .ThenBy(u => u.FullName)
+                         .OrderBy(u => u.UserType).ThenBy(u => u.FirstName).ThenBy(u => u.LastName)
                          .ToListAsync();
     }
 
@@ -182,11 +239,10 @@ public class UnitService : IUnitService
         return links.Select(uu => (uu.Unit, uu.LinkType)).ToList();
     }
 
-    // Removes Occupant role only if the user has no remaining Occupant UserUnit links
     private async Task RevokeOccupantRoleIfUnlinkedAsync(ApplicationUser user)
     {
         var stillOccupant = await _context.UserUnits
-            .AnyAsync(uu => uu.UserId == user.Id && uu.LinkType == UnitLinkType.Occupant);
+            .AnyAsync(uu => uu.UserId == user.Id && uu.LinkType == UnitLinkType.Occupant && uu.MoveOutDate == null);
 
         if (!stillOccupant && await _userManager.IsInRoleAsync(user, Program.RoleOccupant))
             await _userManager.RemoveFromRoleAsync(user, Program.RoleOccupant);

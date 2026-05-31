@@ -127,7 +127,7 @@ public class SuperAdminController : ControllerBase
 
         var occupiedUnits = await _db.Units
             .IgnoreQueryFilters()
-            .CountAsync(u => u.TenantId == id && u.IsOccupied);
+            .CountAsync(u => u.TenantId == id && u.Status == FacilityApp.Data.Models.UnitStatus.Occupied);
 
         var openIncidents = await _db.IncidentReports
             .IgnoreQueryFilters()

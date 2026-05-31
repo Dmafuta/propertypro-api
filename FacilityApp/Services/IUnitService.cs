@@ -5,25 +5,30 @@ namespace FacilityApp.Services;
 public record UnitDetails(
     Unit Unit,
     ApplicationUser? Owner,
-    ApplicationUser? Occupant
+    List<ApplicationUser> Occupants
 );
 
 public interface IUnitService
 {
     Task<List<UnitDetails>> GetAllAsync();
-    Task<Unit> CreateAsync(string unitNumber, string? block, string? floor, string? description);
-    Task UpdateAsync(Guid unitId, string unitNumber, string? block, string? floor, string? description);
-    Task AssignOwnerAsync(Guid unitId, string userId);
-    Task RemoveOwnerAsync(Guid unitId);
-    Task AssignOccupantAsync(Guid unitId, string userId);
-    Task RemoveOccupantAsync(Guid unitId);
-
+    Task<UnitDetails?> GetByIdAsync(Guid unitId);
+    Task<Unit> CreateAsync(string unitNumber, string? block, string? floor, string? description,
+        Guid? unitTypeId, UnitStatus status, decimal? sizeM2, int? bedrooms, int? bathrooms,
+        int parkingBays, decimal? monthlyLevy, string? notes);
+    Task UpdateAsync(Guid unitId, string unitNumber, string? block, string? floor, string? description,
+        Guid? unitTypeId, UnitStatus status, decimal? sizeM2, int? bedrooms, int? bathrooms,
+        int parkingBays, decimal? monthlyLevy, string? notes);
+    Task PatchStatusAsync(Guid unitId, UnitStatus status);
     Task DeleteAsync(Guid unitId);
 
-    /// <summary>Returns users eligible for assignment to a unit.</summary>
-    /// <param name="linkType">Owner → HomeOwners only. Occupant → Residents + HomeOwners.</param>
-    Task<List<ApplicationUser>> GetAssignableUsersAsync(UnitLinkType linkType);
+    // Owner management
+    Task AssignOwnerAsync(Guid unitId, string userId);
+    Task RemoveOwnerAsync(Guid unitId);
 
-    /// <summary>Returns all units the given user is linked to (as owner or occupant).</summary>
+    // Occupant management (supports multiple occupants)
+    Task AddOccupantAsync(Guid unitId, string userId, DateTime? moveInDate);
+    Task RemoveOccupantAsync(Guid unitId, string userId, DateTime? moveOutDate);
+
+    Task<List<ApplicationUser>> GetAssignableUsersAsync(UnitLinkType linkType);
     Task<List<(Unit Unit, UnitLinkType LinkType)>> GetForUserAsync(string userId);
 }

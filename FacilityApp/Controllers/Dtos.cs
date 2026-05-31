@@ -195,3 +195,38 @@ public record UpsertEmployeeProfileRequest(
 public record CreateEntranceRequest(string Name, string? Description);
 public record UpdateEntranceRequest(string Name, string? Description);
 public record SetEntranceRequest(Guid EntranceId);
+
+// ── Unit Types ────────────────────────────────────────────────────────────────
+public record CreateUnitTypeRequest(string Name, string? Description, decimal? DefaultMonthlyLevy,
+    int? DefaultBedrooms, int? DefaultBathrooms);
+public record UpdateUnitTypeRequest(string Name, string? Description, decimal? DefaultMonthlyLevy,
+    int? DefaultBedrooms, int? DefaultBathrooms);
+
+// ── Units (extended) ──────────────────────────────────────────────────────────
+public record CreateUnitRequest2(
+    string UnitNumber, string? Block, string? Floor, string? Description,
+    Guid? UnitTypeId, int Status, decimal? SizeM2, int? Bedrooms, int? Bathrooms,
+    int ParkingBays, decimal? MonthlyLevy, string? Notes);
+public record UpdateUnitRequest2(
+    string UnitNumber, string? Block, string? Floor, string? Description,
+    Guid? UnitTypeId, int Status, decimal? SizeM2, int? Bedrooms, int? Bathrooms,
+    int ParkingBays, decimal? MonthlyLevy, string? Notes);
+public record PatchUnitStatusRequest(int Status);
+public record AddOccupantRequest(string UserId, DateTime? MoveInDate);
+public record RemoveOccupantRequest(DateTime? MoveOutDate);
+
+// ── Meters ────────────────────────────────────────────────────────────────────
+public record AddMeterRequest(
+    Guid UnitId, int UtilityType, int MeterMode,
+    string MeterNumber, string? SerialNumber, string? Location, string? UnitOfMeasure,
+    string? Metadata, string? Notes, DateTime InstallDate);
+public record UpdateMeterRequest(
+    string MeterNumber, string? SerialNumber, string? Location, string? UnitOfMeasure,
+    string? Metadata, string? Notes);
+public record RetireMeterRequest(decimal ClosingReadingValue, DateTime RetiredAt, string? Notes);
+public record AddReadingRequest(
+    decimal Value, DateTime ReadingDate, int ReadingType, string? PhotoUrl, string? Notes);
+public record AddTokenRequest(
+    string TokenCode, decimal AmountPaid, decimal? UnitsLoaded,
+    DateTime PurchasedAt, DateTime? LoadedAt, string? VoucherReference, string? Notes);
+public record CreateAlertRequest(int AlertType, int Severity, string Message, DateTime TriggeredAt);

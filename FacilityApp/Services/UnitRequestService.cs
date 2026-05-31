@@ -86,7 +86,7 @@ public class UnitRequestService : IUnitRequestService
             throw new InvalidOperationException("Request is no longer pending.");
 
         // Assign the unit occupant (this also grants the Occupant role)
-        await _unitSvc.AssignOccupantAsync(request.UnitId, request.ResidentId);
+        await _unitSvc.AddOccupantAsync(request.UnitId, request.ResidentId, null);
 
         request.Status       = UnitRequestStatus.Approved;
         request.ReviewedById = reviewerId;
