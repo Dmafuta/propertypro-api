@@ -18,6 +18,7 @@ namespace FacilityApp
         // Staff sub-roles
         public const string RoleAdmin        = "Admin";
         public const string RoleManager      = "Manager";
+        public const string RoleHrManager    = "HrManager";
         public const string RoleReceptionist = "Receptionist";
         public const string RoleSecurity     = "Security";
 
@@ -418,7 +419,7 @@ namespace FacilityApp
         {
             using var scope = app.Services.CreateScope();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-            string[] roles = [RoleAdmin, RoleManager, RoleReceptionist, RoleSecurity, RoleOccupant, RoleSuperAdmin];
+            string[] roles = [RoleAdmin, RoleManager, RoleHrManager, RoleReceptionist, RoleSecurity, RoleOccupant, RoleSuperAdmin];
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))

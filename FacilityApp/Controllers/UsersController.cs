@@ -181,5 +181,5 @@ public class UsersController : ControllerBase
         !(u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > DateTimeOffset.UtcNow);
 
     private static bool IsValidStaffRole(string role) =>
-        role is "Admin" or "Manager" or "Receptionist" or "Security";
+        role is "Admin" or "Manager" or "HrManager" or "Receptionist" or "Security";
 }
