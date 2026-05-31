@@ -35,7 +35,7 @@ public class UsersController : ControllerBase
     {
         var users = await _users.Users
             .Where(u => u.TenantId == _tenantCtx.TenantId && u.UserType == UserType.Staff)
-            .OrderBy(u => u.FullName)
+            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .ToListAsync();
 
         var result = new List<object>();
