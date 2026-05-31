@@ -25,9 +25,26 @@ public class TenantDomainMiddleware(RequestDelegate next)
 
             if (!isLocal && !isSuperAdmin)
             {
-                var tenant = await tenantSvc.ResolveByDomainAsync(host);
-                if (tenant is not null)
-                    tenantCtx.SetFromTenant(tenant, isCustomDomain: true);
+                // 1. Try resolving by custom domain hostname (Caddy passes original host in X-Forwarded-Host)
+                var forwardedHost = context.Request.Headers["X-Forwarded-Host"].FirstOrDefault()?.Split(',')[0].Trim();
+                var resolveHost   = forwardedHost ?? host;
+
+                var tenantByDomain = await tenantSvc.ResolveByDomainAsync(resolveHost);
+                if (tenantByDomain is not null)
+                {
+                    tenantCtx.SetFromTenant(tenantByDomain, isCustomDomain: true);
+                }
+                else
+                {
+                    // 2. Fall back to X-Tenant-Slug header (sent by the Next.js axiosInstance on every request)
+                    var slugHeader = context.Request.Headers["X-Tenant-Slug"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(slugHeader))
+                    {
+                        var tenantBySlug = await tenantSvc.ResolveBySlugAsync(slugHeader);
+                        if (tenantBySlug is not null)
+                            tenantCtx.SetFromTenant(tenantBySlug, isCustomDomain: false);
+                    }
+                }
             }
         }
 
