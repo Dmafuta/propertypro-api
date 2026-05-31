@@ -55,9 +55,9 @@ greatwallgardens.estate {
         }
     }
 
-    # ── Blazor app: all tenant pages + ASP.NET Core (catch-all) ──────────────
+    # ── Next.js: all tenant pages (catch-all) ────────────────────────────────
     handle {
-        reverse_proxy app:8080 {
+        reverse_proxy web:3000 {
             header_up Host {host}
             header_up X-Forwarded-Proto {scheme}
             header_down -Server
