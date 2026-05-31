@@ -14,4 +14,5 @@ public interface IVisitorService
     Task CancelAsync(Guid visitId);
     Task MarkNoShowAsync(Guid visitId);
     Task<List<ApplicationUser>> GetHostsAsync();
+    Task<Visit?> GetVisitByIdAsync(Guid id);
 }

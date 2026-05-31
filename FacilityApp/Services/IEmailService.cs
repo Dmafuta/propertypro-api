@@ -15,4 +15,6 @@ public interface IEmailService
         bool approved, string? reviewNote, string tenantName);
     Task SendAdminInviteAsync(string to, string adminName, string tenantName, string setPasswordLink);
     Task SendStaffInviteAsync(string to, string name, string tenantName, string setPasswordLink);
+    Task SendVisitorBadgeAsync(string to, string visitorName, string purpose, string? hostName,
+        DateTime? checkedInAt, string tenantName, string badgeUrl, string? primaryColour);
 }

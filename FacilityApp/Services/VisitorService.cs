@@ -257,6 +257,16 @@ public class VisitorService : IVisitorService
         await _audit.LogAsync("Cancel", "Visit", visitId.ToString(), null);
     }
 
+    public async Task<Visit?> GetVisitByIdAsync(Guid id)
+    {
+        return await _context.Visits
+            .Include(v => v.Visitor)
+            .Include(v => v.Host)
+            .Include(v => v.EntryEntrance)
+            .Include(v => v.Tenant)
+            .FirstOrDefaultAsync(v => v.Id == id);
+    }
+
     public async Task<List<ApplicationUser>> GetHostsAsync()
     {
         return await _context.Users

@@ -161,6 +161,17 @@ public record UpdateBrandingRequest(string? LogoUrl, string? PrimaryColour);
 // ── Announcements ─────────────────────────────────────────────────────────────
 public record CreateAnnouncementRequest(string Title, string Body, int Category, DateTime? ExpiresAt);
 
+// ── Badge ─────────────────────────────────────────────────────────────────────
+public record BadgeDto(
+    Guid VisitId,
+    string VisitorName, string VisitorEmail, string VisitorPhone, string? Company,
+    string? PhotoUrl, string Purpose, string? HostName,
+    DateTime ScheduledAt, DateTime? CheckedInAt,
+    int Status, string? EntryEntrance,
+    string TenantName, string? TenantLogoUrl, string? TenantPrimaryColour);
+
+public record SendBadgeRequest(string? CustomEmail);
+
 // ── HR ────────────────────────────────────────────────────────────────────────
 public record HrStaffDto(
     string Id, string FullName, string Email, string? PhoneNumber,
