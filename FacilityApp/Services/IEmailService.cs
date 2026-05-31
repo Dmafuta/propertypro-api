@@ -14,4 +14,5 @@ public interface IEmailService
     Task SendUnitRequestResultAsync(string to, string residentName, string unitNumber,
         bool approved, string? reviewNote, string tenantName);
     Task SendAdminInviteAsync(string to, string adminName, string tenantName, string setPasswordLink);
+    Task SendStaffInviteAsync(string to, string name, string tenantName, string setPasswordLink);
 }

@@ -226,6 +226,39 @@ public class EmailService : IEmailService
         return SendAsync(to, $"You've been invited to manage {tenantName} on FacilityApp", html);
     }
 
+    public Task SendStaffInviteAsync(string to, string name, string tenantName, string setPasswordLink)
+    {
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+              <div style="background:#1b6ec2;padding:32px 32px 24px;border-radius:8px 8px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;">You've been invited</h1>
+              </div>
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:32px;">
+                <p style="font-size:16px;color:#111827;margin-top:0;">Hi {HtmlEncode(name)},</p>
+                <p style="color:#374151;">
+                  You've been added as a staff member of <strong>{HtmlEncode(tenantName)}</strong> on FacilityApp.
+                  Your account is ready — set your password below to get started.
+                </p>
+                <p style="text-align:center;margin:32px 0;">
+                  <a href="{setPasswordLink}"
+                     style="background:#1b6ec2;color:#fff;padding:14px 32px;border-radius:6px;
+                            text-decoration:none;font-weight:bold;font-size:15px;display:inline-block;">
+                    Set Your Password
+                  </a>
+                </p>
+                <p style="color:#6b7280;font-size:13px;">
+                  This link expires in 2 hours. If you weren't expecting this invitation, you can safely ignore this email.
+                </p>
+                <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+                <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">
+                  FacilityApp &mdash; Facility Management System
+                </p>
+              </div>
+            </div>
+            """;
+        return SendAsync(to, $"You've been invited to {tenantName} on FacilityApp", html);
+    }
+
     private static string HtmlEncode(string s) =>
         System.Net.WebUtility.HtmlEncode(s);
 }

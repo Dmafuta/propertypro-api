@@ -16,12 +16,17 @@ public class UsersController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _users;
     private readonly TenantContext                _tenantCtx;
+    private readonly IEmailService                _email;
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
-    public UsersController(UserManager<ApplicationUser> users, TenantContext tenantCtx)
+    public UsersController(
+        UserManager<ApplicationUser> users,
+        TenantContext tenantCtx,
+        IEmailService email)
     {
         _users     = users;
         _tenantCtx = tenantCtx;
+        _email     = email;
     }
 
     // GET /api/users
@@ -41,7 +46,8 @@ public class UsersController : ControllerBase
             {
                 u.Id, u.FullName, u.Email, u.PhoneNumber,
                 u.UserType, u.CreatedAt,
-                Roles = roles
+                Roles    = roles,
+                IsActive = IsActive(u),
             });
         }
         return Ok(result);
@@ -59,41 +65,53 @@ public class UsersController : ControllerBase
         {
             user.Id, user.FullName, user.Email, user.PhoneNumber,
             user.UserType, user.CreatedAt,
-            Roles = roles
+            Roles    = roles,
+            IsActive = IsActive(user),
         });
     }
 
-    // POST /api/users  (create staff member)
+    // POST /api/users  (invite staff member — no role assigned yet)
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateStaffRequest req)
+    public async Task<IActionResult> Invite([FromBody] CreateStaffRequest req)
     {
-        if (!IsValidStaffRole(req.Role))
-            return BadRequest(new { error = "Invalid role." });
+        if (string.IsNullOrWhiteSpace(req.FullName) || string.IsNullOrWhiteSpace(req.Email))
+            return BadRequest(new { error = "Full name and email are required." });
 
         var nameParts = req.FullName.Trim().Split(' ', 2);
         var user = new ApplicationUser
         {
-            UserName  = req.Email.Trim().ToLower(),
-            Email     = req.Email.Trim().ToLower(),
-            FirstName = nameParts[0],
-            LastName  = nameParts.Length > 1 ? nameParts[1] : string.Empty,
-            TenantId  = _tenantCtx.TenantId,
-            UserType  = UserType.Staff
+            UserName    = req.Email.Trim().ToLower(),
+            Email       = req.Email.Trim().ToLower(),
+            FirstName   = nameParts[0],
+            LastName    = nameParts.Length > 1 ? nameParts[1] : string.Empty,
+            PhoneNumber = req.PhoneNumber?.Trim(),
+            TenantId    = _tenantCtx.TenantId,
+            UserType    = UserType.Staff,
         };
 
-        var result = await _users.CreateAsync(user, req.Password);
+        // Create with a random temp password — user will set their own via invite link
+        var tempPassword = Guid.NewGuid().ToString("N") + "!Aa1";
+        var result = await _users.CreateAsync(user, tempPassword);
         if (!result.Succeeded)
             return BadRequest(new { error = result.Errors.FirstOrDefault()?.Description });
 
-        await _users.AddToRoleAsync(user, req.Role);
-        return Ok(new { user.Id, user.FullName, user.Email, Role = req.Role });
+        // Generate invite link (reuses the reset-password mechanism)
+        var token   = await _users.GeneratePasswordResetTokenAsync(user);
+        var encoded = Uri.EscapeDataString(token);
+        var slug    = _tenantCtx.TenantSlug;
+        var link    = $"{Request.Scheme}://{Request.Host}/{slug}/reset-password" +
+                      $"?email={Uri.EscapeDataString(user.Email!)}&token={encoded}";
+
+        _ = _email.SendStaffInviteAsync(user.Email!, user.FullName, _tenantCtx.TenantName, link);
+
+        return Ok(new { user.Id, user.FullName, user.Email, Roles = Array.Empty<string>(), IsActive = true });
     }
 
-    // PATCH /api/users/{id}/role
+    // PATCH /api/users/{id}/role  (null role = remove all roles)
     [HttpPatch("{id}/role")]
     public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateUserRoleRequest req)
     {
-        if (!IsValidStaffRole(req.Role))
+        if (req.Role is not null && !IsValidStaffRole(req.Role))
             return BadRequest(new { error = "Invalid role." });
 
         var user = await _users.FindByIdAsync(id);
@@ -102,7 +120,35 @@ public class UsersController : ControllerBase
 
         var currentRoles = await _users.GetRolesAsync(user);
         await _users.RemoveFromRolesAsync(user, currentRoles.Where(r => r != "Occupant"));
-        await _users.AddToRoleAsync(user, req.Role);
+
+        if (!string.IsNullOrWhiteSpace(req.Role))
+            await _users.AddToRoleAsync(user, req.Role);
+
+        return NoContent();
+    }
+
+    // PATCH /api/users/{id}/deactivate
+    [HttpPatch("{id}/deactivate")]
+    public async Task<IActionResult> Deactivate(string id)
+    {
+        if (id == CurrentUserId) return BadRequest(new { error = "Cannot deactivate your own account." });
+
+        var user = await _users.FindByIdAsync(id);
+        if (user is null || user.TenantId != _tenantCtx.TenantId) return NotFound();
+
+        await _users.SetLockoutEnabledAsync(user, true);
+        await _users.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
+        return NoContent();
+    }
+
+    // PATCH /api/users/{id}/activate
+    [HttpPatch("{id}/activate")]
+    public async Task<IActionResult> Activate(string id)
+    {
+        var user = await _users.FindByIdAsync(id);
+        if (user is null || user.TenantId != _tenantCtx.TenantId) return NotFound();
+
+        await _users.SetLockoutEndDateAsync(user, null);
         return NoContent();
     }
 
@@ -130,6 +176,9 @@ public class UsersController : ControllerBase
         await _users.DeleteAsync(user);
         return NoContent();
     }
+
+    private static bool IsActive(ApplicationUser u) =>
+        !(u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > DateTimeOffset.UtcNow);
 
     private static bool IsValidStaffRole(string role) =>
         role is "Admin" or "Manager" or "Receptionist" or "Security";

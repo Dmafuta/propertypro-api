@@ -61,6 +61,9 @@ public class AuthController : ControllerBase
         if (user is null || user.UserType != UserType.Staff)
             return Unauthorized(new { error = "Invalid email or password." });
 
+        if (await _users.IsLockedOutAsync(user))
+            return Unauthorized(new { error = "Your account has been deactivated. Please contact your administrator." });
+
         var ok = await _users.CheckPasswordAsync(user, req.Password);
         if (!ok)
             return Unauthorized(new { error = "Invalid email or password." });

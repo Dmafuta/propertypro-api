@@ -114,8 +114,8 @@ public record UpdateUnitRequest(string UnitNumber, string? Block, string? Floor,
 public record AssignUserRequest(string UserId);
 
 // ── Users ─────────────────────────────────────────────────────────────────────
-public record CreateStaffRequest(string FullName, string Email, string Password, string Role);
-public record UpdateUserRoleRequest(string Role);
+public record CreateStaffRequest(string FullName, string Email, string? PhoneNumber);
+public record UpdateUserRoleRequest(string? Role);
 public record UpdatePhoneRequest(string? PhoneNumber);
 
 // ── Account (self-service profile) ────────────────────────────────────────────
