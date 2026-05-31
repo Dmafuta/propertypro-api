@@ -7,7 +7,8 @@ public interface IParkingService
     // Vehicles
     Task<List<Vehicle>> GetVehiclesForResidentAsync(string residentId);
     Task<List<Vehicle>> GetAllVehiclesAsync();
-    Task<Vehicle> RegisterVehicleAsync(string ownerId, string plate, string make, string model, string colour, VehicleType type, string? notes);
+    Task<Vehicle?> GetVehicleByIdAsync(Guid vehicleId);
+    Task<Vehicle> RegisterVehicleAsync(string? ownerId, string? ownerName, OwnerCategory ownerCategory, string plate, string make, string model, string colour, VehicleType type, string? notes);
     Task DeleteVehicleAsync(Guid vehicleId);
 
     // Tags

@@ -135,7 +135,8 @@ public record VerifyPhoneRequest(string PhoneNumber, string Code);
 
 // ── Parking ───────────────────────────────────────────────────────────────────
 public record RegisterVehicleRequest(
-    string OwnerId, string Plate, string Make, string Model,
+    string? OwnerId, string? OwnerName, int OwnerCategory,
+    string Plate, string Make, string Model,
     string Colour, int Type, string? Notes);
 
 public record IssueTagRequest(Guid VehicleId, DateTime? ExpiresAt, string? Notes);
@@ -143,6 +144,25 @@ public record UpdateTagStatusRequest(int Status);
 public record LogEntryByTagRequest(string TagNumber, Guid? EntranceId);
 public record LogVisitorEntryRequest(string Plate, Guid? VisitId, Guid? EntranceId, string? Notes);
 public record LogExitRequest(Guid? ExitEntranceId);
+
+public record VehicleDto(
+    Guid Id, string Plate, string Make, string Model, string Colour,
+    string VehicleType, string OwnerCategory,
+    string? OwnerId, string OwnerDisplay,
+    string? TagNumber, string? TagStatus, Guid? TagId,
+    DateTime RegisteredAt, string? Notes);
+
+public record ParkingRecordDto(
+    Guid Id, string Plate, string RecordType,
+    string? TagNumber, string OwnerDisplay,
+    DateTime EnteredAt, DateTime? ExitedAt,
+    string? Duration, string? EntryGate, string? ExitGate, string? Notes);
+
+public record VehicleStickerDto(
+    Guid VehicleId, string TagNumber, Guid TagId,
+    string Plate, string Make, string Model, string Colour,
+    string VehicleType, string OwnerCategory,
+    DateTime IssuedAt, DateTime? ExpiresAt);
 
 // ── Incidents ─────────────────────────────────────────────────────────────────
 public record CreateIncidentRequest(

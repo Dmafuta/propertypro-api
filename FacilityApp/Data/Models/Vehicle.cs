@@ -6,8 +6,13 @@ public class Vehicle
     public Guid TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;
 
-    public string OwnerId { get; set; } = string.Empty;
-    public ApplicationUser Owner { get; set; } = null!;
+    // OwnerId is nullable — VIPs / contractors may not have a system account
+    public string? OwnerId { get; set; }
+    public ApplicationUser? Owner { get; set; }
+
+    // Display name used when OwnerId is null (VIP / contractor)
+    public string? OwnerName { get; set; }
+    public OwnerCategory OwnerCategory { get; set; } = OwnerCategory.Resident;
 
     public string PlateNumber { get; set; } = string.Empty;
     public string Make { get; set; } = string.Empty;
@@ -21,4 +26,5 @@ public class Vehicle
     public VehicleTag? Tag { get; set; }
 }
 
-public enum VehicleType { Car, Motorcycle, Truck, Van, Other }
+public enum VehicleType    { Car, Motorcycle, Truck, Van, Other }
+public enum OwnerCategory  { Resident, Staff, VIP, Contractor }

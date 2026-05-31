@@ -33,24 +33,37 @@ public class ParkingService : IParkingService
         return await db.Vehicles
             .Include(v => v.Owner)
             .Include(v => v.Tag)
-            .OrderBy(v => v.Owner.FullName)
+            .OrderBy(v => v.OwnerName ?? v.Owner!.FullName)
             .ThenBy(v => v.PlateNumber)
             .ToListAsync();
     }
 
-    public async Task<Vehicle> RegisterVehicleAsync(string ownerId, string plate, string make, string model, string colour, VehicleType type, string? notes)
+    public async Task<Vehicle?> GetVehicleByIdAsync(Guid vehicleId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.Vehicles
+            .Include(v => v.Owner)
+            .Include(v => v.Tag)
+            .FirstOrDefaultAsync(v => v.Id == vehicleId);
+    }
+
+    public async Task<Vehicle> RegisterVehicleAsync(
+        string? ownerId, string? ownerName, OwnerCategory ownerCategory,
+        string plate, string make, string model, string colour, VehicleType type, string? notes)
     {
         await using var db = await _factory.CreateDbContextAsync();
         var vehicle = new Vehicle
         {
-            TenantId    = _tenantCtx.TenantId,
-            OwnerId     = ownerId,
-            PlateNumber = plate.Trim().ToUpperInvariant(),
-            Make        = make.Trim(),
-            Model       = model.Trim(),
-            Colour      = colour.Trim(),
-            Type        = type,
-            Notes       = notes?.Trim()
+            TenantId      = _tenantCtx.TenantId,
+            OwnerId       = ownerId,
+            OwnerName     = ownerName?.Trim(),
+            OwnerCategory = ownerCategory,
+            PlateNumber   = plate.Trim().ToUpperInvariant(),
+            Make          = make.Trim(),
+            Model         = model.Trim(),
+            Colour        = colour.Trim(),
+            Type          = type,
+            Notes         = notes?.Trim()
         };
 
         db.Vehicles.Add(vehicle);

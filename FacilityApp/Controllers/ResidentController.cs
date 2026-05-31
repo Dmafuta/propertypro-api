@@ -224,13 +224,15 @@ public class ResidentController : ControllerBase
     public async Task<IActionResult> RegisterVehicle([FromBody] ResidentVehicleInput req)
     {
         var vehicle = await _parking.RegisterVehicleAsync(
-            UserId,
-            req.LicensePlate,
-            req.Make ?? "",
-            req.Model ?? "",
-            req.Colour ?? "",
-            VehicleType.Car,
-            null);
+            ownerId:       UserId,
+            ownerName:     null,
+            ownerCategory: OwnerCategory.Resident,
+            plate:         req.LicensePlate,
+            make:          req.Make ?? "",
+            model:         req.Model ?? "",
+            colour:        req.Colour ?? "",
+            type:          VehicleType.Car,
+            notes:         null);
         return Ok(new ResidentVehicleDto(
             vehicle.Id,
             vehicle.PlateNumber,
