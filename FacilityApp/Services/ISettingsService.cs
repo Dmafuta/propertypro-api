@@ -8,4 +8,5 @@ public interface ISettingsService
     Task UpdateAsync(string name, string? contactEmail, string? contactPhone, string? address, string? website, string? customDomain);
     Task UpdateBrandingAsync(string? logoUrl, string? primaryColour);
     Task UpdateSmsAsync(bool enabled, int provider, string? apiKey, string? username, string? senderId, string? apiUrl);
+    Task UpdateMpesaAsync(bool enabled, bool sandbox, string? shortCode, string? consumerKey, string? consumerSecret, string? passkey);
 }

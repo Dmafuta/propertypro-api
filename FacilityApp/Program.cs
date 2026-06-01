@@ -230,8 +230,10 @@ namespace FacilityApp
             builder.Services.AddHttpClient("twilio");
             builder.Services.AddHttpClient("vonage");
             builder.Services.AddHttpClient("customsms");
+            builder.Services.AddHttpClient("mpesa");
             builder.Services.AddScoped<FacilityApp.Services.Sms.SmsProviderFactory>();
             builder.Services.AddScoped<ISmsService, SmsService>();
+            builder.Services.AddScoped<IPaymentService, PaymentService>();
 
             // Application services
             builder.Services.AddScoped<IAuditService, AuditService>();

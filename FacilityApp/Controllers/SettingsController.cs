@@ -26,7 +26,9 @@ public class SettingsController : ControllerBase
             tenant.ContactEmail, tenant.ContactPhone,
             tenant.Address, tenant.Website, tenant.CustomDomain,
             tenant.PrimaryColour, tenant.LogoUrl,
-            tenant.SmsEnabled, tenant.SmsProvider, tenant.SmsApiKey, tenant.SmsUsername, tenant.SmsSenderId, tenant.SmsApiUrl
+            tenant.SmsEnabled, tenant.SmsProvider, tenant.SmsApiKey, tenant.SmsUsername, tenant.SmsSenderId, tenant.SmsApiUrl,
+            tenant.MpesaEnabled, tenant.MpesaSandbox, tenant.MpesaShortCode,
+            tenant.MpesaConsumerKey, tenant.MpesaConsumerSecret, tenant.MpesaPasskey
         });
     }
 
@@ -53,6 +55,23 @@ public class SettingsController : ControllerBase
     {
         await _settings.UpdateBrandingAsync(req.LogoUrl, req.PrimaryColour);
         return NoContent();
+    }
+
+    // PATCH /api/settings/mpesa
+    [HttpPatch("mpesa")]
+    public async Task<IActionResult> UpdateMpesa([FromBody] UpdateMpesaRequest req)
+    {
+        try
+        {
+            await _settings.UpdateMpesaAsync(
+                req.Enabled, req.Sandbox,
+                req.ShortCode, req.ConsumerKey, req.ConsumerSecret, req.Passkey);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     // PATCH /api/settings/sms

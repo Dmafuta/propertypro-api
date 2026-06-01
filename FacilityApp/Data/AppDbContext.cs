@@ -37,6 +37,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<EmployeeProfile>    EmployeeProfiles    { get; set; }
     public DbSet<ResidentProfile>    ResidentProfiles    { get; set; }
     public DbSet<OwnerProfile>       OwnerProfiles       { get; set; }
+    public DbSet<Payment>            Payments            { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -81,6 +82,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<EmployeeProfile>().ToTable("employee_profiles");
         builder.Entity<ResidentProfile>().ToTable("resident_profiles");
         builder.Entity<OwnerProfile>().ToTable("owner_profiles");
+        builder.Entity<Payment>().ToTable("payments");
 
         // ── Indexes ────────────────────────────────────────────────────────────
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
@@ -188,6 +190,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<EmployeeProfile>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         builder.Entity<ResidentProfile>().HasQueryFilter(r => r.TenantId == CurrentTenantId);
         builder.Entity<OwnerProfile>().HasQueryFilter(o => o.TenantId == CurrentTenantId);
+        builder.Entity<Payment>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
 
         // ── Other relationships ────────────────────────────────────────────────
         builder.Entity<UnitRequest>()
@@ -298,5 +301,20 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<RefreshToken>()
             .HasIndex(r => r.Token).IsUnique();
         // No global query filter on RefreshTokens — looked up by token value only
+
+        builder.Entity<Payment>()
+            .HasOne(p => p.Resident).WithMany()
+            .HasForeignKey(p => p.ResidentId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Payment>()
+            .HasOne(p => p.Unit).WithMany()
+            .HasForeignKey(p => p.UnitId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Payment>()
+            .HasOne(p => p.RecordedBy).WithMany()
+            .HasForeignKey(p => p.RecordedById).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Payment>()
+            .HasIndex(p => new { p.TenantId, p.CheckoutRequestId })
+            .HasFilter("\"CheckoutRequestId\" IS NOT NULL");
+        builder.Entity<Payment>()
+            .Property(p => p.Amount).HasPrecision(18, 2);
     }
 }

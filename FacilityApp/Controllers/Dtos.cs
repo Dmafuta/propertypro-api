@@ -24,6 +24,18 @@ public record CreateTenantRequest(string Name, string Slug, string ContactEmail)
 public record SeedAdminRequest(string FirstName, string LastName, string Email);
 public record UpdatePlanRequest(int Plan);
 public record UpdateSmsRequest(bool Enabled, int Provider, string? ApiKey, string? Username, string? SenderId, string? ApiUrl);
+public record UpdateMpesaRequest(bool Enabled, bool Sandbox, string? ShortCode, string? ConsumerKey, string? ConsumerSecret, string? Passkey);
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+public record InitiateMpesaRequest(
+    string Phone, decimal Amount,
+    string? ResidentId, Guid? UnitId,
+    int Purpose, string? Reference);
+
+public record RecordManualPaymentRequest(
+    string? ResidentId, Guid? UnitId,
+    decimal Amount, int Method, int Purpose,
+    string? Reference, string? Notes);
 
 public record TenantHealthDto(
     int TotalStaff, int TotalResidents,

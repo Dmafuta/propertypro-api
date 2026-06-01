@@ -73,4 +73,30 @@ public class SettingsService : ISettingsService
         _tenantCtx.SmsSenderId  = tenant.SmsSenderId;
         _tenantCtx.SmsApiUrl    = tenant.SmsApiUrl;
     }
+
+    public async Task UpdateMpesaAsync(
+        bool enabled, bool sandbox,
+        string? shortCode, string? consumerKey, string? consumerSecret, string? passkey)
+    {
+        var tenant = await _context.Tenants.FindAsync(_tenantCtx.TenantId)
+            ?? throw new InvalidOperationException("Tenant not found.");
+
+        if (enabled && tenant.Plan != Data.Models.TenantPlan.Professional)
+            throw new InvalidOperationException("M-Pesa integration is a Professional plan feature. Please upgrade to enable it.");
+
+        tenant.MpesaEnabled        = enabled;
+        tenant.MpesaSandbox        = sandbox;
+        tenant.MpesaShortCode      = string.IsNullOrWhiteSpace(shortCode)      ? null : shortCode.Trim();
+        tenant.MpesaConsumerKey    = string.IsNullOrWhiteSpace(consumerKey)    ? null : consumerKey.Trim();
+        tenant.MpesaConsumerSecret = string.IsNullOrWhiteSpace(consumerSecret) ? null : consumerSecret.Trim();
+        tenant.MpesaPasskey        = string.IsNullOrWhiteSpace(passkey)        ? null : passkey.Trim();
+        await _context.SaveChangesAsync();
+
+        _tenantCtx.MpesaEnabled        = tenant.MpesaEnabled;
+        _tenantCtx.MpesaSandbox        = tenant.MpesaSandbox;
+        _tenantCtx.MpesaShortCode      = tenant.MpesaShortCode;
+        _tenantCtx.MpesaConsumerKey    = tenant.MpesaConsumerKey;
+        _tenantCtx.MpesaConsumerSecret = tenant.MpesaConsumerSecret;
+        _tenantCtx.MpesaPasskey        = tenant.MpesaPasskey;
+    }
 }

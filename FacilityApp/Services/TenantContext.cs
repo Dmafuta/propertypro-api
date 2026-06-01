@@ -24,6 +24,14 @@ public class TenantContext
     public string?     SmsSenderId { get; set; }
     public string?     SmsApiUrl   { get; set; }
 
+    // M-Pesa (Safaricom Daraja)
+    public bool    MpesaEnabled        { get; set; } = false;
+    public bool    MpesaSandbox        { get; set; } = true;
+    public string? MpesaShortCode      { get; set; }
+    public string? MpesaConsumerKey    { get; set; }
+    public string? MpesaConsumerSecret { get; set; }
+    public string? MpesaPasskey        { get; set; }
+
     /// <summary>
     /// URL prefix for generating links.
     /// Empty string on a custom domain, "/{slug}" on a shared domain.
@@ -63,6 +71,12 @@ public class TenantContext
         SmsUsername    = t.SmsUsername;
         SmsSenderId    = t.SmsSenderId;
         SmsApiUrl      = t.SmsApiUrl;
+        MpesaEnabled        = t.MpesaEnabled;
+        MpesaSandbox        = t.MpesaSandbox;
+        MpesaShortCode      = t.MpesaShortCode;
+        MpesaConsumerKey    = t.MpesaConsumerKey;
+        MpesaConsumerSecret = t.MpesaConsumerSecret;
+        MpesaPasskey        = t.MpesaPasskey;
         IsResolved     = true;
     }
 
@@ -83,5 +97,11 @@ public class TenantContext
         SmsUsername    = null;
         SmsSenderId    = null;
         SmsApiUrl      = null;
+        MpesaEnabled        = false;
+        MpesaSandbox        = true;
+        MpesaShortCode      = null;
+        MpesaConsumerKey    = null;
+        MpesaConsumerSecret = null;
+        MpesaPasskey        = null;
     }
 }

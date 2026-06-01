@@ -42,6 +42,14 @@ public class Tenant
 
     /// <summary>Endpoint URL for the CustomHttp provider.</summary>
     public string? SmsApiUrl { get; set; }
+
+    // M-Pesa (Safaricom Daraja) — per-tenant credentials
+    public bool    MpesaEnabled        { get; set; } = false;
+    public bool    MpesaSandbox        { get; set; } = true;
+    public string? MpesaShortCode      { get; set; }
+    public string? MpesaConsumerKey    { get; set; }
+    public string? MpesaConsumerSecret { get; set; }
+    public string? MpesaPasskey        { get; set; }
 }
 
 public enum TenantPlan { Starter = 0, Professional = 1 }
