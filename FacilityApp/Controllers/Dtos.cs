@@ -23,7 +23,7 @@ public record TenantDto(Guid Id, string Name, string Slug, bool IsActive, int Pl
 public record CreateTenantRequest(string Name, string Slug, string ContactEmail);
 public record SeedAdminRequest(string FirstName, string LastName, string Email);
 public record UpdatePlanRequest(int Plan);
-public record UpdateSmsRequest(bool Enabled, string? ApiKey, string? Username, string? SenderId);
+public record UpdateSmsRequest(bool Enabled, int Provider, string? ApiKey, string? Username, string? SenderId, string? ApiUrl);
 
 public record TenantHealthDto(
     int TotalStaff, int TotalResidents,

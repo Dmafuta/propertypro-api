@@ -28,11 +28,21 @@ public class Tenant
     public string? CustomDomain { get; set; }
 
     // SMS notifications
-    public bool SmsEnabled { get; set; } = true;
-    /// <summary>Tenant-specific Africa's Talking API key (Professional plan only). Null = use platform key.</summary>
-    public string? SmsApiKey { get; set; }
+    public bool        SmsEnabled  { get; set; } = true;
+    public SmsProvider SmsProvider { get; set; } = SmsProvider.AfricasTalking;
+
+    // Shared credential fields — semantics differ per provider:
+    //   AfricasTalking → ApiKey=AT ApiKey,   Username=AT Username, SenderId=Sender ID
+    //   Twilio         → ApiKey=Auth Token,  Username=Account SID, SenderId=From number
+    //   Vonage         → ApiKey=API Key,     Username=API Secret,  SenderId=From name
+    //   CustomHttp     → ApiKey=Bearer token (optional), SenderId=From (optional)
+    public string? SmsApiKey  { get; set; }
     public string? SmsUsername { get; set; }
     public string? SmsSenderId { get; set; }
+
+    /// <summary>Endpoint URL for the CustomHttp provider.</summary>
+    public string? SmsApiUrl { get; set; }
 }
 
 public enum TenantPlan { Starter = 0, Professional = 1 }
+public enum SmsProvider { AfricasTalking = 0, Twilio = 1, Vonage = 2, CustomHttp = 3 }

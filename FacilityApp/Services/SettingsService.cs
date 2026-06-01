@@ -49,7 +49,7 @@ public class SettingsService : ISettingsService
         _tenantCtx.PrimaryColour = tenant.PrimaryColour;
     }
 
-    public async Task UpdateSmsAsync(bool enabled, string? apiKey, string? username, string? senderId)
+    public async Task UpdateSmsAsync(bool enabled, int provider, string? apiKey, string? username, string? senderId, string? apiUrl)
     {
         var tenant = await _context.Tenants.FindAsync(_tenantCtx.TenantId)
             ?? throw new InvalidOperationException("Tenant not found.");
@@ -58,15 +58,19 @@ public class SettingsService : ISettingsService
         if (!string.IsNullOrWhiteSpace(apiKey) && tenant.Plan != Data.Models.TenantPlan.Professional)
             throw new InvalidOperationException("Custom SMS credentials are a Professional plan feature. Please upgrade to enable them.");
 
-        tenant.SmsEnabled  = enabled;
-        tenant.SmsApiKey   = string.IsNullOrWhiteSpace(apiKey)   ? null : apiKey.Trim();
-        tenant.SmsUsername = string.IsNullOrWhiteSpace(username)  ? null : username.Trim();
-        tenant.SmsSenderId = string.IsNullOrWhiteSpace(senderId)  ? null : senderId.Trim();
+        tenant.SmsEnabled   = enabled;
+        tenant.SmsProvider  = (Data.Models.SmsProvider)provider;
+        tenant.SmsApiKey    = string.IsNullOrWhiteSpace(apiKey)   ? null : apiKey.Trim();
+        tenant.SmsUsername  = string.IsNullOrWhiteSpace(username)  ? null : username.Trim();
+        tenant.SmsSenderId  = string.IsNullOrWhiteSpace(senderId)  ? null : senderId.Trim();
+        tenant.SmsApiUrl    = string.IsNullOrWhiteSpace(apiUrl)    ? null : apiUrl.Trim();
         await _context.SaveChangesAsync();
 
-        _tenantCtx.SmsEnabled  = tenant.SmsEnabled;
-        _tenantCtx.SmsApiKey   = tenant.SmsApiKey;
-        _tenantCtx.SmsUsername = tenant.SmsUsername;
-        _tenantCtx.SmsSenderId = tenant.SmsSenderId;
+        _tenantCtx.SmsEnabled   = tenant.SmsEnabled;
+        _tenantCtx.SmsProvider  = tenant.SmsProvider;
+        _tenantCtx.SmsApiKey    = tenant.SmsApiKey;
+        _tenantCtx.SmsUsername  = tenant.SmsUsername;
+        _tenantCtx.SmsSenderId  = tenant.SmsSenderId;
+        _tenantCtx.SmsApiUrl    = tenant.SmsApiUrl;
     }
 }

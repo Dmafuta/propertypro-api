@@ -1,96 +1,35 @@
+using FacilityApp.Services.Sms;
+using Microsoft.Extensions.Logging;
+
 namespace FacilityApp.Services;
 
-public class AfricasTalkingSettings
-{
-    public string Username { get; set; } = "";
-    public string ApiKey   { get; set; } = "";
-    /// <summary>Optional alphanumeric sender ID or shortcode registered with AT.</summary>
-    public string? SenderId { get; set; }
-    /// <summary>Set true to route through the AT sandbox (test environment).</summary>
-    public bool Sandbox { get; set; } = false;
-}
-
+/// <summary>
+/// High-level SMS service — composes message templates and delegates sending
+/// to the per-tenant provider resolved by SmsProviderFactory.
+/// </summary>
 public class SmsService : ISmsService
 {
-    private const string LiveUrl    = "https://api.africastalking.com/version1/messaging";
-    private const string SandboxUrl = "https://api.sandbox.africastalking.com/version1/messaging";
+    private readonly SmsProviderFactory  _factory;
+    private readonly TenantContext       _tenantCtx;
+    private readonly ILogger<SmsService> _logger;
 
-    private readonly AfricasTalkingSettings _platform;
-    private readonly TenantContext          _tenantCtx;
-    private readonly IHttpClientFactory     _httpFactory;
-    private readonly ILogger<SmsService>    _logger;
-
-    public SmsService(
-        AfricasTalkingSettings platform,
-        TenantContext tenantCtx,
-        IHttpClientFactory httpFactory,
-        ILogger<SmsService> logger)
+    public SmsService(SmsProviderFactory factory, TenantContext tenantCtx, ILogger<SmsService> logger)
     {
-        _platform    = platform;
-        _tenantCtx   = tenantCtx;
-        _httpFactory = httpFactory;
-        _logger      = logger;
+        _factory   = factory;
+        _tenantCtx = tenantCtx;
+        _logger    = logger;
     }
 
     public async Task SendAsync(string to, string message)
     {
-        // Respect the per-tenant SMS toggle
         if (!_tenantCtx.SmsEnabled)
         {
             _logger.LogDebug("SMS disabled for tenant {Slug}. Skipping SMS to {To}", _tenantCtx.TenantSlug, to);
             return;
         }
 
-        // Use tenant credentials if they have their own key (Professional plan) — else fall back to platform
-        var useTenantCreds = _tenantCtx.Plan == Data.Models.TenantPlan.Professional
-                          && !string.IsNullOrWhiteSpace(_tenantCtx.SmsApiKey);
-
-        var apiKey   = useTenantCreds ? _tenantCtx.SmsApiKey!    : _platform.ApiKey;
-        var username = useTenantCreds ? (_tenantCtx.SmsUsername ?? _tenantCtx.TenantSlug) : _platform.Username;
-        var senderId = useTenantCreds ? _tenantCtx.SmsSenderId    : _platform.SenderId;
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            _logger.LogWarning("AfricasTalking not configured. Skipping SMS to {To}: {Preview}",
-                to, message.Length > 40 ? message[..40] + "..." : message);
-            return;
-        }
-
-        var endpoint = _platform.Sandbox ? SandboxUrl : LiveUrl;
-
-        var form = new Dictionary<string, string>
-        {
-            ["username"] = username,
-            ["to"]       = to,
-            ["message"]  = message
-        };
-        if (!string.IsNullOrWhiteSpace(senderId))
-            form["from"] = senderId;
-
-        var client = _httpFactory.CreateClient("africastalking");
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.Add("apiKey", apiKey);
-        request.Headers.Add("Accept", "application/json");
-        request.Content = new FormUrlEncodedContent(form);
-
-        try
-        {
-            var response = await client.SendAsync(request);
-            var body = await response.Content.ReadAsStringAsync();
-            if (response.IsSuccessStatusCode)
-            {
-                _logger.LogInformation("SMS sent to {To} — AT response: {Body}", to, body);
-            }
-            else
-            {
-                _logger.LogError("SMS to {To} failed: HTTP {StatusCode} — {Body}", to, (int)response.StatusCode, body);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "SMS to {To} threw an exception", to);
-        }
+        var provider = _factory.Create();
+        await provider.SendAsync(to, message);
     }
 
     public Task SendVisitConfirmationAsync(string to, string hostName, string visitorName,

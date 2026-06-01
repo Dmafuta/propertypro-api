@@ -3,6 +3,7 @@ using System.Text;
 using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using FacilityApp.Services;
+using FacilityApp.Services.Sms;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -222,10 +223,14 @@ namespace FacilityApp
             builder.Services.AddSingleton(smtp);
             builder.Services.AddScoped<IEmailService, EmailService>();
 
-            // SMS (Africa's Talking)
+            // SMS — multi-provider
             var at = builder.Configuration.GetSection("AfricasTalking").Get<AfricasTalkingSettings>() ?? new AfricasTalkingSettings();
             builder.Services.AddSingleton(at);
             builder.Services.AddHttpClient("africastalking");
+            builder.Services.AddHttpClient("twilio");
+            builder.Services.AddHttpClient("vonage");
+            builder.Services.AddHttpClient("customsms");
+            builder.Services.AddScoped<FacilityApp.Services.Sms.SmsProviderFactory>();
             builder.Services.AddScoped<ISmsService, SmsService>();
 
             // Application services

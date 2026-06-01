@@ -26,7 +26,7 @@ public class SettingsController : ControllerBase
             tenant.ContactEmail, tenant.ContactPhone,
             tenant.Address, tenant.Website, tenant.CustomDomain,
             tenant.PrimaryColour, tenant.LogoUrl,
-            tenant.SmsEnabled, tenant.SmsApiKey, tenant.SmsUsername, tenant.SmsSenderId
+            tenant.SmsEnabled, tenant.SmsProvider, tenant.SmsApiKey, tenant.SmsUsername, tenant.SmsSenderId, tenant.SmsApiUrl
         });
     }
 
@@ -61,7 +61,7 @@ public class SettingsController : ControllerBase
     {
         try
         {
-            await _settings.UpdateSmsAsync(req.Enabled, req.ApiKey, req.Username, req.SenderId);
+            await _settings.UpdateSmsAsync(req.Enabled, req.Provider, req.ApiKey, req.Username, req.SenderId, req.ApiUrl);
             return NoContent();
         }
         catch (InvalidOperationException ex)

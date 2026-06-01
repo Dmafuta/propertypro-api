@@ -17,10 +17,12 @@ public class TenantContext
     public bool IsCustomDomain { get; set; }
 
     // Per-tenant SMS settings
-    public bool SmsEnabled { get; set; } = true;
-    public string? SmsApiKey { get; set; }
-    public string? SmsUsername { get; set; }
-    public string? SmsSenderId { get; set; }
+    public bool        SmsEnabled  { get; set; } = true;
+    public SmsProvider SmsProvider { get; set; } = SmsProvider.AfricasTalking;
+    public string?     SmsApiKey   { get; set; }
+    public string?     SmsUsername { get; set; }
+    public string?     SmsSenderId { get; set; }
+    public string?     SmsApiUrl   { get; set; }
 
     /// <summary>
     /// URL prefix for generating links.
@@ -56,9 +58,11 @@ public class TenantContext
         IsSystem       = t.IsSystem;
         IsCustomDomain = isCustomDomain;
         SmsEnabled     = t.SmsEnabled;
+        SmsProvider    = t.SmsProvider;
         SmsApiKey      = t.SmsApiKey;
         SmsUsername    = t.SmsUsername;
         SmsSenderId    = t.SmsSenderId;
+        SmsApiUrl      = t.SmsApiUrl;
         IsResolved     = true;
     }
 
@@ -74,8 +78,10 @@ public class TenantContext
         IsSystem       = false;
         IsCustomDomain = false;
         SmsEnabled     = true;
+        SmsProvider    = SmsProvider.AfricasTalking;
         SmsApiKey      = null;
         SmsUsername    = null;
         SmsSenderId    = null;
+        SmsApiUrl      = null;
     }
 }
