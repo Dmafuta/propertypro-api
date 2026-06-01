@@ -35,6 +35,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Parcel>             Parcels             { get; set; }
     public DbSet<RefreshToken>       RefreshTokens       { get; set; }
     public DbSet<EmployeeProfile>    EmployeeProfiles    { get; set; }
+    public DbSet<ResidentProfile>    ResidentProfiles    { get; set; }
+    public DbSet<OwnerProfile>       OwnerProfiles       { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -77,6 +79,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Parcel>().ToTable("parcels");
         builder.Entity<RefreshToken>().ToTable("refresh_tokens");
         builder.Entity<EmployeeProfile>().ToTable("employee_profiles");
+        builder.Entity<ResidentProfile>().ToTable("resident_profiles");
+        builder.Entity<OwnerProfile>().ToTable("owner_profiles");
 
         // ── Indexes ────────────────────────────────────────────────────────────
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
@@ -182,6 +186,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ParkingRecord>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
         builder.Entity<Parcel>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
         builder.Entity<EmployeeProfile>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        builder.Entity<ResidentProfile>().HasQueryFilter(r => r.TenantId == CurrentTenantId);
+        builder.Entity<OwnerProfile>().HasQueryFilter(o => o.TenantId == CurrentTenantId);
 
         // ── Other relationships ────────────────────────────────────────────────
         builder.Entity<UnitRequest>()
@@ -270,6 +276,21 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey<EmployeeProfile>(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<EmployeeProfile>()
             .HasIndex(e => new { e.TenantId, e.UserId }).IsUnique();
+
+        builder.Entity<ResidentProfile>()
+            .HasOne(r => r.User).WithOne(u => u.ResidentProfile)
+            .HasForeignKey<ResidentProfile>(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<ResidentProfile>()
+            .HasIndex(r => new { r.TenantId, r.UserId }).IsUnique();
+        builder.Entity<ResidentProfile>()
+            .HasIndex(r => new { r.TenantId, r.NationalId })
+            .IsUnique().HasFilter("\"NationalId\" IS NOT NULL");
+
+        builder.Entity<OwnerProfile>()
+            .HasOne(o => o.User).WithOne(u => u.OwnerProfile)
+            .HasForeignKey<OwnerProfile>(o => o.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<OwnerProfile>()
+            .HasIndex(o => new { o.TenantId, o.UserId }).IsUnique();
 
         builder.Entity<RefreshToken>()
             .HasOne(r => r.User).WithMany()

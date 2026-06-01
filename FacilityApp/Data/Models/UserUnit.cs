@@ -20,6 +20,19 @@ public class UserUnit
     public DateTime LinkedAt { get; set; } = DateTime.UtcNow;
 
     // Tenancy tracking
-    public DateTime? MoveInDate { get; set; }
+    public DateTime? MoveInDate  { get; set; }
     public DateTime? MoveOutDate { get; set; }
+
+    // Tenancy details (Occupant links only)
+    public DateTime? LeaseStartDate     { get; set; }
+    public DateTime? LeaseEndDate       { get; set; }
+    public decimal?  MonthlyRent        { get; set; }
+    public decimal?  DepositAmount      { get; set; }
+    public bool?     DepositPaid        { get; set; }
+    public string?   EmployerName       { get; set; }
+    public string?   EmployerPhone      { get; set; }
+    public string?   GuarantorName      { get; set; }
+    public string?   GuarantorIdNumber  { get; set; }
+    public string?   GuarantorPhone     { get; set; }
+    public string?   RentalAgreementRef { get; set; }
 }

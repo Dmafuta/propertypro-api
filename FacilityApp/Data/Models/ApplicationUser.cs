@@ -15,7 +15,9 @@ public class ApplicationUser : IdentityUser
     public UserType UserType { get; set; } = UserType.Staff;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Guid? CurrentEntranceId { get; set; }
-    public ICollection<UserUnit> UserUnits { get; set; } = [];
+    public ICollection<UserUnit>  UserUnits       { get; set; } = [];
+    public ResidentProfile?       ResidentProfile { get; set; }
+    public OwnerProfile?          OwnerProfile    { get; set; }
 
     /// <summary>Computed display name — not stored in DB.</summary>
     [NotMapped]

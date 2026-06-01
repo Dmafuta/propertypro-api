@@ -222,6 +222,66 @@ public record UpsertEmployeeProfileRequest(
     DateTime? JoiningDate, string? ContractType, string? Department,
     string? EmergencyContactName, string? EmergencyContactPhone);
 
+// ── Residents (admin management) ──────────────────────────────────────────────
+public record ResidentListItemDto(
+    string Id, string FullName, string Email, string? PhoneNumber,
+    string UserType, string[] Units, string? NationalId, DateTime CreatedAt);
+
+public record ResidentUnitLinkDto(
+    Guid UserUnitId, Guid UnitId, string UnitNumber, string? Block,
+    string LinkType, DateTime? MoveInDate, DateTime? MoveOutDate,
+    // Tenancy details
+    DateTime? LeaseStartDate, DateTime? LeaseEndDate,
+    decimal? MonthlyRent, decimal? DepositAmount, bool? DepositPaid,
+    string? EmployerName, string? EmployerPhone,
+    string? GuarantorName, string? GuarantorIdNumber, string? GuarantorPhone,
+    string? RentalAgreementRef);
+
+public record ResidentVehicleSummaryDto(
+    Guid Id, string Plate, string Make, string Model, string Colour,
+    string VehicleType, string? TagNumber, string? TagStatus);
+
+public record ResidentProfileDataDto(
+    string? NationalId, string? PassportNumber,
+    DateTime? DateOfBirth, string? Gender, string? PhysicalAddress,
+    string? EmergencyContactName, string? EmergencyContactPhone,
+    string? NextOfKinName, string? NextOfKinPhone, string? NextOfKinRelationship);
+
+public record OwnerProfileDataDto(
+    string? KraPin, string? BankName, string? BankAccountNumber, string? BankBranch,
+    string? LevyPaymentMethod, string? TitleDeedRef, bool IsAbsenteeOwner,
+    string? ManagingAgentName, string? ManagingAgentContact);
+
+public record ResidentDetailDto(
+    string Id, string FirstName, string? MiddleName, string LastName,
+    string Email, string? PhoneNumber, string UserType, DateTime CreatedAt,
+    ResidentProfileDataDto? ResidentProfile,
+    OwnerProfileDataDto? OwnerProfile,
+    List<ResidentUnitLinkDto> Units,
+    List<ResidentVehicleSummaryDto> Vehicles);
+
+public record CreateResidentRequest(
+    string FirstName, string? MiddleName, string LastName,
+    string Email, string? PhoneNumber, int UserType, string Password);
+
+public record UpsertResidentProfileRequest(
+    string? NationalId, string? PassportNumber,
+    DateTime? DateOfBirth, string? Gender, string? PhysicalAddress,
+    string? EmergencyContactName, string? EmergencyContactPhone,
+    string? NextOfKinName, string? NextOfKinPhone, string? NextOfKinRelationship);
+
+public record UpsertOwnerProfileRequest(
+    string? KraPin, string? BankName, string? BankAccountNumber, string? BankBranch,
+    string? LevyPaymentMethod, string? TitleDeedRef, bool IsAbsenteeOwner,
+    string? ManagingAgentName, string? ManagingAgentContact);
+
+public record UpdateTenancyRequest(
+    DateTime? LeaseStartDate, DateTime? LeaseEndDate,
+    decimal? MonthlyRent, decimal? DepositAmount, bool? DepositPaid,
+    string? EmployerName, string? EmployerPhone,
+    string? GuarantorName, string? GuarantorIdNumber, string? GuarantorPhone,
+    string? RentalAgreementRef);
+
 // ── Entrances ─────────────────────────────────────────────────────────────────
 public record CreateEntranceRequest(string Name, string? Description);
 public record UpdateEntranceRequest(string Name, string? Description);

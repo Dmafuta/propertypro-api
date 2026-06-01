@@ -15,6 +15,7 @@ public interface IParkingService
     Task<VehicleTag> IssueTagAsync(Guid vehicleId, string issuedById, DateTime? expiresAt, string? notes);
     Task UpdateTagStatusAsync(Guid tagId, TagStatus status);
     Task<VehicleTag?> LookupTagAsync(string tagNumber);
+    Task SuspendTagsByUserAsync(string userId);
 
     // Parking records
     Task<ParkingRecord> LogEntryByTagAsync(string tagNumber, string loggedById, Guid? entranceId);

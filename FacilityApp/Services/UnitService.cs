@@ -10,12 +10,15 @@ public class UnitService : IUnitService
     private readonly AppDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TenantContext _tenantCtx;
+    private readonly IParkingService _parking;
 
-    public UnitService(AppDbContext context, UserManager<ApplicationUser> userManager, TenantContext tenantCtx)
+    public UnitService(AppDbContext context, UserManager<ApplicationUser> userManager,
+        TenantContext tenantCtx, IParkingService parking)
     {
         _context     = context;
         _userManager = userManager;
         _tenantCtx   = tenantCtx;
+        _parking     = parking;
     }
 
     public async Task<List<UnitDetails>> GetAllAsync()
@@ -192,6 +195,9 @@ public class UnitService : IUnitService
         }
 
         await _context.SaveChangesAsync();
+
+        // Option 2: auto-suspend active vehicle tags for this occupant on move-out
+        await _parking.SuspendTagsByUserAsync(userId);
 
         var user = await _userManager.FindByIdAsync(userId);
         if (user is not null)

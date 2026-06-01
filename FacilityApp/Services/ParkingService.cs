@@ -248,6 +248,20 @@ public class ParkingService : IParkingService
         return await db.ParkingRecords.CountAsync(p => p.ExitedAt == null);
     }
 
+    public async Task SuspendTagsByUserAsync(string userId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var activeTags = await db.VehicleTags
+            .Include(t => t.Vehicle)
+            .Where(t => t.Vehicle.OwnerId == userId && t.Status == TagStatus.Active)
+            .ToListAsync();
+
+        foreach (var tag in activeTags)
+            tag.Status = TagStatus.Suspended;
+
+        await db.SaveChangesAsync();
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     private static async Task<string> GenerateTagNumberAsync(AppDbContext db)
