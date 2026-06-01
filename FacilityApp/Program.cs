@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using System.Text;
+using FacilityApp.Authorization;
 using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using FacilityApp.Services;
 using FacilityApp.Services.Sms;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -259,6 +261,11 @@ namespace FacilityApp
             builder.Services.AddScoped<IMeterService, MeterService>();
             builder.Services.AddMemoryCache();
 
+            // Permission system
+            builder.Services.AddScoped<IPermissionService, PermissionService>();
+            builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+            builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
             var app = builder.Build();
 
             await MigrateAsync(app);
@@ -428,12 +435,92 @@ namespace FacilityApp
         {
             using var scope = app.Services.CreateScope();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            var db          = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            // 1 — Seed Identity roles
             string[] roles = [RoleAdmin, RoleManager, RoleHrManager, RoleReceptionist, RoleSecurity, RoleOccupant, RoleSuperAdmin];
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))
                     await roleManager.CreateAsync(new IdentityRole(role));
             }
+
+            // 2 — Seed AppRole metadata for system roles (skip SuperAdmin + Occupant — not managed here)
+            var systemRoleDefs = new[]
+            {
+                (RoleAdmin,        "Full administrative access"),
+                (RoleManager,      "Management access across all modules"),
+                (RoleHrManager,    "Human resources management"),
+                (RoleReceptionist, "Reception and visitor management"),
+                (RoleSecurity,     "Security and access control"),
+                (RoleOccupant,     "Unit occupant — resident self-service"),
+            };
+
+            foreach (var (name, description) in systemRoleDefs)
+            {
+                if (!await db.AppRoles.IgnoreQueryFilters().AnyAsync(r => r.Name == name))
+                {
+                    db.AppRoles.Add(new AppRole
+                    {
+                        Name        = name,
+                        Description = description,
+                        IsSystem    = true,
+                        IsActive    = true,
+                    });
+                }
+            }
+            await db.SaveChangesAsync();
+
+            // 3 — Seed default permissions if the table is empty
+            if (await db.RolePermissions.IgnoreQueryFilters().AnyAsync()) return;
+
+            var allPermissions = Enum.GetValues<Permission>().ToArray();
+
+            var defaultMap = new Dictionary<string, Permission[]>
+            {
+                [RoleAdmin] = allPermissions,
+                [RoleManager] = [
+                    Permission.CanCheckInVisitors, Permission.CanPreRegisterVisits,
+                    Permission.CanManageVisitors,  Permission.CanManageAccess,
+                    Permission.CanViewReports,     Permission.CanViewDashboard,
+                    Permission.CanManageAuditLog,  Permission.CanManageUnits,
+                    Permission.CanManageFacilities,Permission.CanManageEntrances,
+                    Permission.CanLogIncidents,    Permission.CanManageIncidents,
+                    Permission.CanAccessParking,   Permission.CanManageParking,
+                    Permission.CanManageParcels,   Permission.CanManageMaintenance,
+                    Permission.CanManagePayments,  Permission.CanManageDocuments,
+                    Permission.CanManageAnnouncements,
+                ],
+                [RoleHrManager] = [
+                    Permission.CanManageHr, Permission.CanViewDashboard,
+                ],
+                [RoleReceptionist] = [
+                    Permission.CanPreRegisterVisits, Permission.CanManageVisitors,
+                    Permission.CanManageAccess,      Permission.CanLogIncidents,
+                    Permission.CanManageParcels,     Permission.CanManageAnnouncements,
+                    Permission.CanViewDashboard,
+                ],
+                [RoleSecurity] = [
+                    Permission.CanCheckInVisitors, Permission.CanManageAccess,
+                    Permission.CanLogIncidents,    Permission.CanAccessParking,
+                    Permission.CanViewDashboard,
+                ],
+                [RoleOccupant] = [
+                    Permission.CanPreRegisterVisits,
+                ],
+            };
+
+            var appRoles = await db.AppRoles.IgnoreQueryFilters().ToListAsync();
+            foreach (var (roleName, permissions) in defaultMap)
+            {
+                var appRole = appRoles.FirstOrDefault(r => r.Name == roleName);
+                if (appRole is null) continue;
+
+                foreach (var p in permissions)
+                    db.RolePermissions.Add(new RolePermission { AppRoleId = appRole.Id, Permission = p });
+            }
+
+            await db.SaveChangesAsync();
         }
 
         private static async Task SeedSuperAdminAsync(WebApplication app)

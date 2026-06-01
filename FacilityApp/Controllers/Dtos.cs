@@ -12,6 +12,14 @@ public record LogoutRequest(string RefreshToken);
 public record ForgotPasswordRequest(string Slug, string Email);
 public record ResetPasswordRequest(string Slug, string Email, string Token, string NewPassword);
 
+// ── Roles & Permissions ───────────────────────────────────────────────────────
+public record AppRoleDto(Guid Id, string Name, string? Description, bool IsSystem, bool IsActive,
+    DateTime CreatedAt, List<int> Permissions);
+public record CreateRoleRequest(string Name, string? Description, List<int>? Permissions);
+public record UpdateRoleRequest(string? Name, string? Description);
+public record UpdateRolePermissionsRequest(List<int> Permissions);
+public record PermissionDefinitionDto(int Value, string Name);
+
 // ── SuperAdmin ────────────────────────────────────────────────────────────────
 public record TwoFactorRequiredResponse(bool RequiresTwoFactor, string TempToken, string MaskedPhone);
 public record SuperAdminVerify2FaRequest(string TempToken, string Code);

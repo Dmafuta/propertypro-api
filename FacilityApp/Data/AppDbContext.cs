@@ -38,6 +38,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ResidentProfile>    ResidentProfiles    { get; set; }
     public DbSet<OwnerProfile>       OwnerProfiles       { get; set; }
     public DbSet<Payment>            Payments            { get; set; }
+    public DbSet<AppRole>            AppRoles            { get; set; }
+    public DbSet<RolePermission>     RolePermissions     { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -83,6 +85,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ResidentProfile>().ToTable("resident_profiles");
         builder.Entity<OwnerProfile>().ToTable("owner_profiles");
         builder.Entity<Payment>().ToTable("payments");
+        builder.Entity<AppRole>().ToTable("app_roles");
+        builder.Entity<RolePermission>().ToTable("role_permissions");
 
         // ── Indexes ────────────────────────────────────────────────────────────
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
@@ -316,5 +320,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .HasFilter("\"CheckoutRequestId\" IS NOT NULL");
         builder.Entity<Payment>()
             .Property(p => p.Amount).HasPrecision(18, 2);
+
+        // ── AppRole / RolePermission ────────────────────────────────────────────
+        // No tenant query filters — these are global tables managed by SuperAdmin.
+        builder.Entity<AppRole>()
+            .HasIndex(r => r.Name).IsUnique();
+
+        builder.Entity<RolePermission>()
+            .HasKey(rp => new { rp.AppRoleId, rp.Permission });
+
+        builder.Entity<RolePermission>()
+            .HasOne(rp => rp.AppRole)
+            .WithMany(r => r.Permissions)
+            .HasForeignKey(rp => rp.AppRoleId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

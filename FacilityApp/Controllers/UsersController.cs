@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using FacilityApp.Data;
 using FacilityApp.Data.Models;
 using FacilityApp.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -17,16 +18,19 @@ public class UsersController : ControllerBase
     private readonly UserManager<ApplicationUser> _users;
     private readonly TenantContext                _tenantCtx;
     private readonly IEmailService                _email;
+    private readonly AppDbContext                 _db;
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
     public UsersController(
         UserManager<ApplicationUser> users,
         TenantContext tenantCtx,
-        IEmailService email)
+        IEmailService email,
+        AppDbContext db)
     {
         _users     = users;
         _tenantCtx = tenantCtx;
         _email     = email;
+        _db        = db;
     }
 
     // GET /api/users
@@ -107,11 +111,26 @@ public class UsersController : ControllerBase
         return Ok(new { user.Id, user.FullName, user.Email, Roles = Array.Empty<string>(), IsActive = true });
     }
 
+    // GET /api/users/available-roles  — roles SuperAdmin has defined (assignable to staff)
+    [HttpGet("available-roles")]
+    public async Task<IActionResult> GetAvailableRoles()
+    {
+        var roles = await _db.AppRoles
+            .IgnoreQueryFilters()
+            .Where(r => r.IsActive && r.Name != "Occupant" && r.Name != "SuperAdmin")
+            .OrderBy(r => r.IsSystem ? 0 : 1)
+            .ThenBy(r => r.Name)
+            .Select(r => new { r.Id, r.Name, r.Description, r.IsSystem })
+            .ToListAsync();
+
+        return Ok(roles);
+    }
+
     // PATCH /api/users/{id}/role  (null role = remove all roles)
     [HttpPatch("{id}/role")]
     public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateUserRoleRequest req)
     {
-        if (req.Role is not null && !IsValidStaffRole(req.Role))
+        if (req.Role is not null && !await IsValidStaffRoleAsync(req.Role))
             return BadRequest(new { error = "Invalid role." });
 
         var user = await _users.FindByIdAsync(id);
@@ -180,6 +199,10 @@ public class UsersController : ControllerBase
     private static bool IsActive(ApplicationUser u) =>
         !(u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > DateTimeOffset.UtcNow);
 
-    private static bool IsValidStaffRole(string role) =>
-        role is "Admin" or "Manager" or "HrManager" or "Receptionist" or "Security";
+    private async Task<bool> IsValidStaffRoleAsync(string role) =>
+        role is "Admin" || // Admin always valid (bootstrapping)
+        await _db.AppRoles
+            .IgnoreQueryFilters()
+            .AnyAsync(r => r.Name == role && r.IsActive
+                        && r.Name != "Occupant" && r.Name != "SuperAdmin");
 }
