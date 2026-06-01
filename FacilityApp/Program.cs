@@ -250,6 +250,7 @@ namespace FacilityApp
             builder.Services.AddScoped<IUnitRequestService, UnitRequestService>();
             builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
             builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+            builder.Services.AddScoped<IPlatformAnnouncementService, PlatformAnnouncementService>();
             builder.Services.AddScoped<IDocumentService, DocumentService>();
             builder.Services.AddScoped<IIncidentService, IncidentService>();
             builder.Services.AddSingleton<IQrCodeService, QrCodeService>();

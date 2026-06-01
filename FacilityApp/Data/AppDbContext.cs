@@ -38,8 +38,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ResidentProfile>    ResidentProfiles    { get; set; }
     public DbSet<OwnerProfile>       OwnerProfiles       { get; set; }
     public DbSet<Payment>            Payments            { get; set; }
-    public DbSet<AppRole>            AppRoles            { get; set; }
-    public DbSet<RolePermission>     RolePermissions     { get; set; }
+    public DbSet<AppRole>                AppRoles                { get; set; }
+    public DbSet<RolePermission>         RolePermissions         { get; set; }
+    public DbSet<PlatformAnnouncement>   PlatformAnnouncements   { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -87,6 +88,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Payment>().ToTable("payments");
         builder.Entity<AppRole>().ToTable("app_roles");
         builder.Entity<RolePermission>().ToTable("role_permissions");
+        builder.Entity<PlatformAnnouncement>().ToTable("platform_announcements");
 
         // ── Indexes ────────────────────────────────────────────────────────────
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
