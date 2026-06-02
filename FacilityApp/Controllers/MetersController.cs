@@ -14,6 +14,27 @@ public class MetersController(IMeterService meters) : ControllerBase
 {
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 
+    // GET /api/meters   — all meters for this tenant
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var items = await meters.GetAllAsync();
+        return Ok(items.Select(m => new
+        {
+            m.Id, m.MeterNumber, m.SerialNumber,
+            m.UtilityType, m.UtilityValue, m.MeterMode, m.MeterModeValue,
+            m.IsActive, m.Location, m.UnitOfMeasure, m.InstallDate, m.RetiredAt,
+            m.UnitId, m.UnitNumber, m.Block,
+            LatestReading = m.LatestReadingValue == null ? null : new
+            {
+                ReadingValue = m.LatestReadingValue,
+                ReadingDate  = m.LatestReadingDate,
+                ReadingType  = m.LatestReadingType,
+            },
+            m.ReadingCount, m.UnacknowledgedAlerts,
+        }));
+    }
+
     // GET /api/meters/unit/{unitId}
     [HttpGet("unit/{unitId:guid}")]
     public async Task<IActionResult> GetForUnit(Guid unitId)

@@ -8,6 +8,38 @@ public class MeterService(AppDbContext context, TenantContext tenantCtx) : IMete
 {
     // ── Meters ────────────────────────────────────────────────────────────────
 
+    public async Task<List<MeterListItem>> GetAllAsync()
+    {
+        var meters = await context.Meters
+            .Include(m => m.Unit)
+            .OrderByDescending(m => m.IsActive)
+            .ThenBy(m => m.Unit.UnitNumber)
+            .ToListAsync();
+
+        var result = new List<MeterListItem>();
+        foreach (var m in meters)
+        {
+            var latest = await context.MeterReadings
+                .Where(r => r.MeterId == m.Id)
+                .OrderByDescending(r => r.ReadingDate)
+                .FirstOrDefaultAsync();
+            var readingCount = await context.MeterReadings.CountAsync(r => r.MeterId == m.Id);
+            var alertCount   = await context.MeterAlerts.CountAsync(a => a.MeterId == m.Id && a.AcknowledgedAt == null);
+
+            result.Add(new MeterListItem(
+                m.Id, m.MeterNumber, m.SerialNumber,
+                m.UtilityType.ToString(), (int)m.UtilityType,
+                m.MeterMode.ToString(), (int)m.MeterMode,
+                m.IsActive, m.Location, m.UnitOfMeasure,
+                m.InstallDate, m.RetiredAt,
+                m.UnitId, m.Unit.UnitNumber, m.Unit.Block,
+                latest?.ReadingValue, latest?.ReadingDate, latest?.ReadingType.ToString(),
+                readingCount, alertCount
+            ));
+        }
+        return result;
+    }
+
     public async Task<List<MeterWithHistory>> GetForUnitAsync(Guid unitId)
     {
         var meters = await context.Meters

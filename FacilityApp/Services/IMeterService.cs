@@ -4,9 +4,20 @@ namespace FacilityApp.Services;
 
 public record MeterWithHistory(Meter Meter, MeterReading? LatestReading, int ReadingCount);
 
+public record MeterListItem(
+    Guid     Id,            string  MeterNumber,   string?  SerialNumber,
+    string   UtilityType,   int     UtilityValue,  string   MeterMode,     int MeterModeValue,
+    bool     IsActive,      string? Location,      string?  UnitOfMeasure,
+    DateTime InstallDate,   DateTime? RetiredAt,
+    Guid     UnitId,        string  UnitNumber,    string?  Block,
+    decimal? LatestReadingValue, DateTime? LatestReadingDate, string? LatestReadingType,
+    int      ReadingCount,  int     UnacknowledgedAlerts
+);
+
 public interface IMeterService
 {
     // Meters
+    Task<List<MeterListItem>>   GetAllAsync();
     Task<List<MeterWithHistory>> GetForUnitAsync(Guid unitId);
     Task<Meter?> GetByIdAsync(Guid meterId);
     Task<Meter> AddAsync(Guid unitId, UtilityType utilityType, MeterMode meterMode,
