@@ -41,6 +41,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<AppRole>                AppRoles                { get; set; }
     public DbSet<RolePermission>         RolePermissions         { get; set; }
     public DbSet<PlatformAnnouncement>   PlatformAnnouncements   { get; set; }
+    public DbSet<ConsumableType>         ConsumableTypes         { get; set; }
+    public DbSet<ConsumableIssuance>     ConsumableIssuances     { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -89,6 +91,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<AppRole>().ToTable("app_roles");
         builder.Entity<RolePermission>().ToTable("role_permissions");
         builder.Entity<PlatformAnnouncement>().ToTable("platform_announcements");
+        builder.Entity<ConsumableType>().ToTable("consumable_types");
+        builder.Entity<ConsumableIssuance>().ToTable("consumable_issuances");
 
         // ── Indexes ────────────────────────────────────────────────────────────
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
@@ -197,6 +201,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ResidentProfile>().HasQueryFilter(r => r.TenantId == CurrentTenantId);
         builder.Entity<OwnerProfile>().HasQueryFilter(o => o.TenantId == CurrentTenantId);
         builder.Entity<Payment>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
+        builder.Entity<ConsumableType>().HasQueryFilter(t => t.TenantId == CurrentTenantId);
+        builder.Entity<ConsumableIssuance>().HasQueryFilter(i => i.TenantId == CurrentTenantId);
 
         // ── Other relationships ────────────────────────────────────────────────
         builder.Entity<UnitRequest>()
@@ -322,6 +328,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .HasFilter("\"CheckoutRequestId\" IS NOT NULL");
         builder.Entity<Payment>()
             .Property(p => p.Amount).HasPrecision(18, 2);
+
+        // ── Consumables ────────────────────────────────────────────────────────
+        builder.Entity<ConsumableIssuance>()
+            .HasOne(i => i.ConsumableType).WithMany(t => t.Issuances)
+            .HasForeignKey(i => i.ConsumableTypeId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<ConsumableIssuance>()
+            .HasOne(i => i.Unit).WithMany()
+            .HasForeignKey(i => i.UnitId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<ConsumableIssuance>()
+            .HasOne(i => i.IssuedBy).WithMany()
+            .HasForeignKey(i => i.IssuedById).OnDelete(DeleteBehavior.Restrict);
 
         // ── AppRole / RolePermission ────────────────────────────────────────────
         // No tenant query filters — these are global tables managed by SuperAdmin.

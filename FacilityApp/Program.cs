@@ -260,6 +260,7 @@ namespace FacilityApp
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<IUnitTypeService, UnitTypeService>();
             builder.Services.AddScoped<IMeterService, MeterService>();
+            builder.Services.AddScoped<IConsumableService, ConsumableService>();
             builder.Services.AddMemoryCache();
 
             // Permission system
