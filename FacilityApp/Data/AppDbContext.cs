@@ -43,6 +43,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PlatformAnnouncement>   PlatformAnnouncements   { get; set; }
     public DbSet<ConsumableType>         ConsumableTypes         { get; set; }
     public DbSet<ConsumableIssuance>     ConsumableIssuances     { get; set; }
+    public DbSet<ConsumableRestockLog>   ConsumableRestockLogs   { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, TenantContext tenantContext)
         : base(options)
@@ -93,6 +94,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<PlatformAnnouncement>().ToTable("platform_announcements");
         builder.Entity<ConsumableType>().ToTable("consumable_types");
         builder.Entity<ConsumableIssuance>().ToTable("consumable_issuances");
+        builder.Entity<ConsumableRestockLog>().ToTable("consumable_restock_logs");
 
         // ── Indexes ────────────────────────────────────────────────────────────
         builder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
@@ -203,6 +205,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Payment>().HasQueryFilter(p => p.TenantId == CurrentTenantId);
         builder.Entity<ConsumableType>().HasQueryFilter(t => t.TenantId == CurrentTenantId);
         builder.Entity<ConsumableIssuance>().HasQueryFilter(i => i.TenantId == CurrentTenantId);
+        builder.Entity<ConsumableRestockLog>().HasQueryFilter(r => r.TenantId == CurrentTenantId);
 
         // ── Other relationships ────────────────────────────────────────────────
         builder.Entity<UnitRequest>()
@@ -339,6 +342,13 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<ConsumableIssuance>()
             .HasOne(i => i.IssuedBy).WithMany()
             .HasForeignKey(i => i.IssuedById).OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ConsumableRestockLog>()
+            .HasOne(r => r.ConsumableType).WithMany(t => t.RestockLogs)
+            .HasForeignKey(r => r.ConsumableTypeId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<ConsumableRestockLog>()
+            .HasOne(r => r.RestockedBy).WithMany()
+            .HasForeignKey(r => r.RestockedById).OnDelete(DeleteBehavior.Restrict);
 
         // ── AppRole / RolePermission ────────────────────────────────────────────
         // No tenant query filters — these are global tables managed by SuperAdmin.

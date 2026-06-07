@@ -29,14 +29,33 @@ public class ConsumableService(IDbContextFactory<AppDbContext> factory, TenantCo
         return type;
     }
 
-    public async Task RestockAsync(Guid typeId, int quantity)
+    public async Task RestockAsync(Guid typeId, int quantity, string restockedById, string? notes)
     {
         if (quantity <= 0) throw new InvalidOperationException("Quantity must be positive.");
         await using var db = await factory.CreateDbContextAsync();
         var type = await db.ConsumableTypes.FindAsync(typeId)
             ?? throw new InvalidOperationException("Consumable type not found.");
         type.CurrentStock += quantity;
+        db.ConsumableRestockLogs.Add(new ConsumableRestockLog
+        {
+            TenantId         = tenantCtx.TenantId,
+            ConsumableTypeId = typeId,
+            Quantity         = quantity,
+            RestockedById    = restockedById,
+            Notes            = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+        });
         await db.SaveChangesAsync();
+    }
+
+    public async Task<List<ConsumableRestockLog>> GetRestockLogsAsync(Guid? typeId = null)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        var query = db.ConsumableRestockLogs
+            .Include(r => r.ConsumableType)
+            .Include(r => r.RestockedBy)
+            .AsQueryable();
+        if (typeId.HasValue) query = query.Where(r => r.ConsumableTypeId == typeId.Value);
+        return await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
     }
 
     public async Task ToggleTypeActiveAsync(Guid typeId)

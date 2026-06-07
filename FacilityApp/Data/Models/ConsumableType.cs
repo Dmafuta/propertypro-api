@@ -14,4 +14,5 @@ public class ConsumableType
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<ConsumableIssuance> Issuances { get; set; } = [];
+    public List<ConsumableRestockLog> RestockLogs { get; set; } = [];
 }

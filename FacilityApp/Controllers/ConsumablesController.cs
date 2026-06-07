@@ -42,9 +42,27 @@ public class ConsumablesController(IConsumableService consumables) : ControllerB
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "Admin,Manager")]
     public async Task<IActionResult> Restock(Guid id, [FromBody] RestockRequest req)
     {
-        try { await consumables.RestockAsync(id, req.Quantity); }
+        try { await consumables.RestockAsync(id, req.Quantity, UserId, req.Notes); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
         return NoContent();
+    }
+
+    // GET /api/consumables/restock-log?typeId=
+    [HttpGet("restock-log")]
+    public async Task<IActionResult> GetRestockLog([FromQuery] Guid? typeId)
+    {
+        var items = await consumables.GetRestockLogsAsync(typeId);
+        return Ok(items.Select(r => new
+        {
+            r.Id,
+            ConsumableTypeId   = r.ConsumableTypeId,
+            ConsumableTypeName = r.ConsumableType.Name,
+            ConsumableUnit     = r.ConsumableType.Unit,
+            r.Quantity,
+            RestockedBy        = r.RestockedBy.FullName,
+            r.Notes,
+            r.CreatedAt,
+        }));
     }
 
     // PATCH /api/consumables/types/{id}/toggle
@@ -121,5 +139,5 @@ public class ConsumablesController(IConsumableService consumables) : ControllerB
 }
 
 public record CreateConsumableTypeRequest(string Name, string Unit, int? LowStockThreshold);
-public record RestockRequest(int Quantity);
+public record RestockRequest(int Quantity, string? Notes);
 public record IssueConsumableRequest(Guid ConsumableTypeId, Guid UnitId, int Quantity, DateTime IssuedAt, string? Notes);
