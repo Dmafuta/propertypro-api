@@ -233,8 +233,10 @@ namespace FacilityApp
             builder.Services.AddHttpClient("vonage");
             builder.Services.AddHttpClient("customsms");
             builder.Services.AddHttpClient("mpesa");
+            builder.Services.AddHttpClient("telegram");
             builder.Services.AddScoped<FacilityApp.Services.Sms.SmsProviderFactory>();
             builder.Services.AddScoped<ISmsService, SmsService>();
+            builder.Services.AddScoped<ITelegramService, TelegramService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
 
             // Application services

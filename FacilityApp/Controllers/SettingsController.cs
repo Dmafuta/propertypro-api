@@ -27,6 +27,7 @@ public class SettingsController : ControllerBase
             tenant.Address, tenant.Website, tenant.CustomDomain,
             tenant.PrimaryColour, tenant.LogoUrl,
             tenant.SmsEnabled, tenant.SmsProvider, tenant.SmsApiKey, tenant.SmsUsername, tenant.SmsSenderId, tenant.SmsApiUrl,
+            tenant.TelegramEnabled, tenant.TelegramBotToken,
             tenant.MpesaEnabled, tenant.MpesaSandbox, tenant.MpesaShortCode,
             tenant.MpesaConsumerKey, tenant.MpesaConsumerSecret, tenant.MpesaPasskey
         });
@@ -81,6 +82,21 @@ public class SettingsController : ControllerBase
         try
         {
             await _settings.UpdateSmsAsync(req.Enabled, req.Provider, req.ApiKey, req.Username, req.SenderId, req.ApiUrl);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    // PATCH /api/settings/telegram
+    [HttpPatch("telegram")]
+    public async Task<IActionResult> UpdateTelegram([FromBody] UpdateTelegramRequest req)
+    {
+        try
+        {
+            await _settings.UpdateTelegramAsync(req.Enabled, req.BotToken);
             return NoContent();
         }
         catch (InvalidOperationException ex)

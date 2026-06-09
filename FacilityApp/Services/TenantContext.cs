@@ -24,6 +24,10 @@ public class TenantContext
     public string?     SmsSenderId { get; set; }
     public string?     SmsApiUrl   { get; set; }
 
+    // Telegram Bot notifications
+    public bool    TelegramEnabled  { get; set; } = false;
+    public string? TelegramBotToken { get; set; }
+
     // M-Pesa (Safaricom Daraja)
     public bool    MpesaEnabled        { get; set; } = false;
     public bool    MpesaSandbox        { get; set; } = true;
@@ -71,6 +75,8 @@ public class TenantContext
         SmsUsername    = t.SmsUsername;
         SmsSenderId    = t.SmsSenderId;
         SmsApiUrl      = t.SmsApiUrl;
+        TelegramEnabled  = t.TelegramEnabled;
+        TelegramBotToken = t.TelegramBotToken;
         MpesaEnabled        = t.MpesaEnabled;
         MpesaSandbox        = t.MpesaSandbox;
         MpesaShortCode      = t.MpesaShortCode;
@@ -97,6 +103,8 @@ public class TenantContext
         SmsUsername    = null;
         SmsSenderId    = null;
         SmsApiUrl      = null;
+        TelegramEnabled  = false;
+        TelegramBotToken = null;
         MpesaEnabled        = false;
         MpesaSandbox        = true;
         MpesaShortCode      = null;

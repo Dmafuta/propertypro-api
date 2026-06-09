@@ -99,4 +99,17 @@ public class SettingsService : ISettingsService
         _tenantCtx.MpesaConsumerSecret = tenant.MpesaConsumerSecret;
         _tenantCtx.MpesaPasskey        = tenant.MpesaPasskey;
     }
+
+    public async Task UpdateTelegramAsync(bool enabled, string? botToken)
+    {
+        var tenant = await _context.Tenants.FindAsync(_tenantCtx.TenantId)
+            ?? throw new InvalidOperationException("Tenant not found.");
+
+        tenant.TelegramEnabled  = enabled;
+        tenant.TelegramBotToken = string.IsNullOrWhiteSpace(botToken) ? null : botToken.Trim();
+        await _context.SaveChangesAsync();
+
+        _tenantCtx.TelegramEnabled  = tenant.TelegramEnabled;
+        _tenantCtx.TelegramBotToken = tenant.TelegramBotToken;
+    }
 }

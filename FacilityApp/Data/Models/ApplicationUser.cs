@@ -15,6 +15,8 @@ public class ApplicationUser : IdentityUser
     public UserType UserType { get; set; } = UserType.Staff;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Guid? CurrentEntranceId { get; set; }
+    /// <summary>Telegram chat ID — populated when user links their Telegram account via the bot.</summary>
+    public long? TelegramChatId { get; set; }
     public ICollection<UserUnit>  UserUnits       { get; set; } = [];
     public ResidentProfile?       ResidentProfile { get; set; }
     public OwnerProfile?          OwnerProfile    { get; set; }

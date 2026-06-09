@@ -50,6 +50,10 @@ public class Tenant
     public string? MpesaConsumerKey    { get; set; }
     public string? MpesaConsumerSecret { get; set; }
     public string? MpesaPasskey        { get; set; }
+
+    // Telegram Bot notifications — per-tenant bot token
+    public bool    TelegramEnabled  { get; set; } = false;
+    public string? TelegramBotToken { get; set; }
 }
 
 public enum TenantPlan { Starter = 0, Professional = 1 }

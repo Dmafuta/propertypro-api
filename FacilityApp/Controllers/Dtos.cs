@@ -33,6 +33,7 @@ public record SeedAdminRequest(string FirstName, string LastName, string Email);
 public record UpdatePlanRequest(int Plan);
 public record UpdateSmsRequest(bool Enabled, int Provider, string? ApiKey, string? Username, string? SenderId, string? ApiUrl);
 public record UpdateMpesaRequest(bool Enabled, bool Sandbox, string? ShortCode, string? ConsumerKey, string? ConsumerSecret, string? Passkey);
+public record UpdateTelegramRequest(bool Enabled, string? BotToken);
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 public record InitiateMpesaRequest(

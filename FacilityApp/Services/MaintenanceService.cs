@@ -7,17 +7,19 @@ namespace FacilityApp.Services;
 public class MaintenanceService : IMaintenanceService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
-    private readonly TenantContext _tenantCtx;
-    private readonly IEmailService _email;
-    private readonly ISmsService   _sms;
+    private readonly TenantContext    _tenantCtx;
+    private readonly IEmailService    _email;
+    private readonly ISmsService      _sms;
+    private readonly ITelegramService _telegram;
 
     public MaintenanceService(IDbContextFactory<AppDbContext> factory, TenantContext tenantCtx,
-        IEmailService email, ISmsService sms)
+        IEmailService email, ISmsService sms, ITelegramService telegram)
     {
         _factory   = factory;
         _tenantCtx = tenantCtx;
         _email     = email;
         _sms       = sms;
+        _telegram  = telegram;
     }
 
     public async Task<List<MaintenanceRequest>> GetForResidentAsync(string residentId)
@@ -100,6 +102,9 @@ public class MaintenanceService : IMaintenanceService
 
         if (!string.IsNullOrWhiteSpace(resident.PhoneNumber))
             _ = _sms.SendMaintenanceUpdateAsync(resident.PhoneNumber, resident.FullName,
+                request.Title, statusLabel, _tenantCtx.TenantName);
+        if (resident.TelegramChatId is not null)
+            _ = _telegram.SendMaintenanceUpdateAsync(resident.TelegramChatId, resident.FullName,
                 request.Title, statusLabel, _tenantCtx.TenantName);
     }
 }
